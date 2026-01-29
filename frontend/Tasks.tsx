@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from '../store';
-import { TaskStatus, TaskType, DealStatus } from '../types';
+import { useCRM } from './store';
+import { TaskStatus, TaskType, DealStatus } from './types';
 
 const Tasks: React.FC = () => {
   const { tasks, deals, leads, currentUser, updateTaskStatus, deleteTask } = useCRM();

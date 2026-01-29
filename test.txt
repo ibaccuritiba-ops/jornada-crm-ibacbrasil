@@ -1,0 +1,26 @@
+{
+  "nome": "IbacBrasil",
+  "cnpj": "05.974.557/0001-47",
+  "cor_principal": "#00ff30",
+  "cor_destaque": "#894122",
+  "logo_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYYo_7NzwaRb47iJzSnlbEGa945Gn1nQ96QA&s"
+}
+
+{
+  "empresa": "697a762fc130543757f75c63",
+  "nome": "André Gomes",
+  "email": "andregomes@gmail.com",
+  "senha": "senhalegal123",
+  "role": "supervisor"
+}
+
+{
+  "empresa": "697a762fc130543757f75c63",
+  "nome": "Luiz Antonio",
+  "email": "luizantonio@gmail.com",
+  "whatsapp": "4198876-3321",
+  "responsavel": "697a77188513996603494265",
+  "funil": "697a795cb05e66b9c2c3308e",
+  "etapa": "697a79a4b05e66b9c2c33093"
+}
+

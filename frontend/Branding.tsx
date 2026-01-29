@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useCRM } from '../store';
+import { useCRM } from './store';
 
 const Branding: React.FC = () => {
   const { currentCompany, updateCompany } = useCRM();

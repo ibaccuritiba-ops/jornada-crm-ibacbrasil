@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from '../store';
-import { UserProfile } from '../types';
+import { useCRM } from './store';
+import { UserProfile } from './types';
 
 const Settings: React.FC = () => {
   const { 

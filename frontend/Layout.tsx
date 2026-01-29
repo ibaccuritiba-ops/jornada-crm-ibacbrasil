@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
-import { useCRM } from '../store';
-import { UserProfile, TaskStatus } from '../types';
+import { useCRM } from './store';
+import { UserProfile, TaskStatus } from './types';
 import Logo from './Logo';
 
 interface LayoutProps {

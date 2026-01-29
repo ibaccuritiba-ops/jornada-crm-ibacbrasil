@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useCRM } from '../store';
-import { UserProfile } from '../types';
+import { useCRM } from './store';
+import { UserProfile } from './types';
 
 const ImportLeads: React.FC = () => {
   const { importLeads, stages, syncLeadsFromFluent, currentUser, users } = useCRM();

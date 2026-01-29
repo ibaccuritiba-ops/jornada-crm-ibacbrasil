@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from '../store';
-import { UserProfile, DealStatus } from '../types';
+import { useCRM } from './store';
+import { UserProfile, DealStatus } from './types';
 import { exportToCSV } from '../App';
 
 const Reports: React.FC = () => {

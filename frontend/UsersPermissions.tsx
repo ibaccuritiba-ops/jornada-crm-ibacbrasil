@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { useCRM } from '../store';
-import { UserProfile, UserPermissions, User } from '../types';
+import { useCRM } from './store';
+import { UserProfile, UserPermissions, User } from './types';
 
 // Mapeamento de nomes amigáveis para as permissões
 const permissionLabels: Record<keyof UserPermissions, string> = {

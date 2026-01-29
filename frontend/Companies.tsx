@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from '../store';
-import { Company } from '../types';
+import { useCRM } from './store';
+import { Company } from './types';
 
 const Companies: React.FC = () => {
   const { companies, addCompany, updateCompany, deleteCompany } = useCRM();
