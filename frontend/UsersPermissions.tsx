@@ -5,305 +5,302 @@ import { UserProfile, UserPermissions, User } from './types';
 
 // Mapeamento de nomes amigáveis para as permissões
 const permissionLabels: Record<keyof UserPermissions, string> = {
-  leads: '👤 Leads',
-  negociacoes: '🎯 Negócios',
-  importacao: '📥 Importação',
-  relatorios: '📊 Relatórios',
-  produtos: '📦 Produtos',
-  pipelines: '🛠️ Config. Funil',
-  branding: '🎨 Branding',
-  configuracoes: '⚙️ Config. Conta',
-  tarefas: '📅 Agenda'
+    leads: '👤 Leads',
+    negociacoes: '🎯 Negócios',
+    importacao: '📥 Importação',
+    relatorios: '📊 Relatórios',
+    produtos: '📦 Produtos',
+    pipelines: '🛠️ Config. Funil',
+    branding: '🎨 Branding',
+    configuracoes: '⚙️ Config. Conta',
+    tarefas: '📅 Agenda'
 };
 
 // Sub-componente para gerenciar a linha do usuário com estado local de rascunho
-const UserRow: React.FC<{ 
-  user: User; 
-  canEdit: boolean; 
-  isCurrent: boolean;
-  isProprietario: boolean;
-  companyName?: string;
-  onUpdate: (userId: string, perms: UserPermissions, access: boolean) => void;
-  onResetPass: (userId: string) => void;
-  onDelete: (userId: string) => void;
+const UserRow: React.FC<{
+    user: User;
+    canEdit: boolean;
+    isCurrent: boolean;
+    isProprietario: boolean;
+    companyName?: string;
+    onUpdate: (userId: string, perms: UserPermissions, access: boolean) => void;
+    onResetPass: (userId: string) => void;
+    onDelete: (userId: string) => void;
 }> = ({ user, canEdit, isCurrent, isProprietario, companyName, onUpdate, onResetPass, onDelete }) => {
-  const [draftPerms, setDraftPerms] = useState<UserPermissions>(user.permissions);
-  const [draftAccess, setDraftAccess] = useState<boolean>(user.acesso_confirmado);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [draftPerms, setDraftPerms] = useState<UserPermissions>(user.permissions);
+    const [draftAccess, setDraftAccess] = useState<boolean>(user.acesso_confirmado);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
-  // Sincroniza se o usuário mudar externamente
-  useEffect(() => {
-    setDraftPerms(user.permissions);
-    setDraftAccess(user.acesso_confirmado);
-  }, [user]);
+    // Sincroniza se o usuário mudar externamente
+    useEffect(() => {
+        setDraftPerms(user.permissions);
+        setDraftAccess(user.acesso_confirmado);
+    }, [user]);
 
-  // Verifica se houve mudanças reais
-  useEffect(() => {
-    const permsChanged = JSON.stringify(draftPerms) !== JSON.stringify(user.permissions);
-    const accessChanged = draftAccess !== user.acesso_confirmado;
-    setHasChanges(permsChanged || accessChanged);
-  }, [draftPerms, draftAccess, user]);
+    // Verifica se houve mudanças reais
+    useEffect(() => {
+        const permsChanged = JSON.stringify(draftPerms) !== JSON.stringify(user.permissions);
+        const accessChanged = draftAccess !== user.acesso_confirmado;
+        setHasChanges(permsChanged || accessChanged);
+    }, [draftPerms, draftAccess, user]);
 
-  const handleTogglePerm = (key: keyof UserPermissions) => {
-    if (!canEdit || !draftAccess) return;
-    setDraftPerms(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    const handleTogglePerm = (key: keyof UserPermissions) => {
+        if (!canEdit || !draftAccess) return;
+        setDraftPerms(prev => ({ ...prev, [key]: !prev[key] }));
+    };
 
-  const handleToggleAccess = () => {
-    if (!canEdit || isCurrent) return;
-    setDraftAccess(!draftAccess);
-  };
+    const handleToggleAccess = () => {
+        if (!canEdit || isCurrent) return;
+        setDraftAccess(!draftAccess);
+    };
 
-  const handleSave = () => {
-    setSaveStatus('saving');
-    setTimeout(() => {
-      onUpdate(user.id, draftPerms, draftAccess);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }, 500);
-  };
+    const handleSave = () => {
+        setSaveStatus('saving');
+        setTimeout(() => {
+            onUpdate(user.id, draftPerms, draftAccess);
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+        }, 500);
+    };
 
-  return (
-    <tr className={`hover:bg-slate-50/50 transition-colors ${hasChanges ? 'bg-blue-50/30' : ''}`}>
-      <td className="px-6 py-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 uppercase border border-slate-200">
-            {user.nome[0]}
-          </div>
-          <div>
-            <p className="font-black text-slate-800 text-sm">{user.nome} {isCurrent && <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full ml-1 uppercase">Você</span>}</p>
-            <p className="text-xs text-slate-500 font-medium mb-1">{user.email}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{user.perfil}</span>
-              {isProprietario && <span className="text-[9px] font-bold text-blue-600 truncate max-w-[120px]">@{companyName || 'Ecossistema'}</span>}
-            </div>
-          </div>
-        </div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <button 
-          disabled={!canEdit || isCurrent}
-          onClick={handleToggleAccess}
-          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${
-            draftAccess ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-          } ${canEdit && !isCurrent ? 'cursor-pointer hover:scale-105 active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
-        >
-          {draftAccess ? 'Acesso Liberado' : 'Acesso Bloqueado'}
-        </button>
-      </td>
+    return (
+        <tr className={`hover:bg-slate-50/50 transition-colors ${hasChanges ? 'bg-blue-50/30' : ''}`}>
+            <td className="px-6 py-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 uppercase border border-slate-200">
+                        {user.nome[0]}
+                    </div>
+                    <div>
+                        <p className="font-black text-slate-800 text-sm">{user.nome} {isCurrent && <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full ml-1 uppercase">Você</span>}</p>
+                        <p className="text-xs text-slate-500 font-medium mb-1">{user.email}</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{user.role}</span>
+                            {isProprietario && <span className="text-[9px] font-bold text-blue-600 truncate max-w-[120px]">@{companyName || 'Ecossistema'}</span>}
+                        </div>
+                    </div>
+                </div>
+            </td>
 
-      <td className="px-6 py-4">
-        <div className="flex flex-wrap gap-1.5 max-w-[320px]">
-          {(Object.keys(draftPerms) as Array<keyof UserPermissions>).map((key) => (
-            <button
-              key={key}
-              disabled={!canEdit || !draftAccess}
-              onClick={() => handleTogglePerm(key)}
-              className={`px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter border-2 transition-all ${
-                draftPerms[key] 
-                  ? 'bg-blue-600 text-white border-transparent shadow-md shadow-blue-200' 
-                  : 'bg-white text-slate-300 border-slate-100'
-              } ${canEdit && draftAccess ? 'cursor-pointer hover:brightness-95' : 'opacity-50 cursor-not-allowed'}`}
-            >
-              {permissionLabels[key] || key}
-            </button>
-          ))}
-        </div>
-      </td>
+            <td className="px-6 py-4">
+                <button
+                    disabled={!canEdit || isCurrent}
+                    onClick={handleToggleAccess}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${draftAccess ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                        } ${canEdit && !isCurrent ? 'cursor-pointer hover:scale-105 active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
+                >
+                    {draftAccess ? 'Acesso Liberado' : 'Acesso Bloqueado'}
+                </button>
+            </td>
 
-      <td className="px-6 py-4 text-right">
-        <div className="flex justify-end items-center gap-3">
-          {hasChanges && saveStatus === 'idle' && (
-            <button 
-              onClick={handleSave}
-              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg animate-bounce cursor-pointer"
-            >
-              Salvar Alterações
-            </button>
-          )}
+            <td className="px-6 py-4">
+                <div className="flex flex-wrap gap-1.5 max-w-[320px]">
+                    {(Object.keys(draftPerms) as Array<keyof UserPermissions>).map((key) => (
+                        <button
+                            key={key}
+                            disabled={!canEdit || !draftAccess}
+                            onClick={() => handleTogglePerm(key)}
+                            className={`px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter border-2 transition-all ${draftPerms[key]
+                                    ? 'bg-blue-600 text-white border-transparent shadow-md shadow-blue-200'
+                                    : 'bg-white text-slate-300 border-slate-100'
+                                } ${canEdit && draftAccess ? 'cursor-pointer hover:brightness-95' : 'opacity-50 cursor-not-allowed'}`}
+                        >
+                            {permissionLabels[key] || key}
+                        </button>
+                    ))}
+                </div>
+            </td>
 
-          {saveStatus === 'saving' && (
-            <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">Gravando...</span>
-          )}
+            <td className="px-6 py-4 text-right">
+                <div className="flex justify-end items-center gap-3">
+                    {hasChanges && saveStatus === 'idle' && (
+                        <button
+                            onClick={handleSave}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg animate-bounce cursor-pointer"
+                        >
+                            Salvar Alterações
+                        </button>
+                    )}
 
-          {saveStatus === 'saved' && (
-            <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
-              <span className="text-sm">✓</span> Atualizado
-            </span>
-          )}
+                    {saveStatus === 'saving' && (
+                        <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">Gravando...</span>
+                    )}
 
-          <div className="flex gap-1">
-            <button 
-              onClick={() => onResetPass(user.id)} 
-              className={`p-2.5 bg-white text-slate-400 rounded-xl border border-slate-200 shadow-sm transition-all ${canEdit ? 'hover:text-slate-900 hover:border-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed'}`} 
-              disabled={!canEdit}
-              title="Alterar Senha Manualmente"
-            >
-              🔑
-            </button>
-            {canEdit && !isCurrent && (
-              <button 
-                onClick={() => onDelete(user.id)} 
-                className="p-2.5 bg-white text-slate-300 hover:text-red-500 rounded-xl border border-slate-200 cursor-pointer shadow-sm transition-all hover:border-red-200"
-              >
-                🗑️
-              </button>
-            )}
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
+                    {saveStatus === 'saved' && (
+                        <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
+                            <span className="text-sm">✓</span> Atualizado
+                        </span>
+                    )}
+
+                    <div className="flex gap-1">
+                        <button
+                            onClick={() => onResetPass(user.id)}
+                            className={`p-2.5 bg-white text-slate-400 rounded-xl border border-slate-200 shadow-sm transition-all ${canEdit ? 'hover:text-slate-900 hover:border-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed'}`}
+                            disabled={!canEdit}
+                            title="Alterar Senha Manualmente"
+                        >
+                            🔑
+                        </button>
+                        {canEdit && !isCurrent && (
+                            <button
+                                onClick={() => onDelete(user.id)}
+                                className="p-2.5 bg-white text-slate-300 hover:text-red-500 rounded-xl border border-slate-200 cursor-pointer shadow-sm transition-all hover:border-red-200"
+                            >
+                                🗑️
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
 };
 
 const UsersPermissions: React.FC = () => {
-  const { users, companies, currentUser, addUser, deleteUser, changeUserPassword, updateUserPermissions } = useCRM();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', perfil: UserProfile.FINAL_USER });
-  const [showPass, setShowPass] = useState(false);
+    const { users, companies, currentUser, addUser, deleteUser, changeUserPassword, updateUserPermissions } = useCRM();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', role: 'vendedor' });
+    const [showPass, setShowPass] = useState(false);
 
-  const isProprietario = currentUser?.perfil === UserProfile.PROPRIETARIO;
-  const isSuperAdmin = currentUser?.perfil === UserProfile.SUPER_ADMIN;
-  const isAdmin = currentUser?.perfil === UserProfile.ADMIN;
-  
-  // Apenas o e-mail marketing@ibacbrasil.com pode criar "Diretores" (SUPER_ADMIN)
-  const isPlatformMaster = currentUser?.email === 'marketing@ibacbrasil.com';
+    const isProprietario = currentUser?.role === 'proprietario';
+    const isSupervisor = currentUser?.role === 'supervisor';
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase());
-    if (isProprietario) return matchesSearch;
-    return matchesSearch && u.companyId === currentUser?.companyId && u.perfil !== UserProfile.PROPRIETARIO;
-  });
+    // Apenas proprietários podem criar usuários
+    const isPlatformMaster = currentUser?.role === 'proprietario';
 
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    addUser({ ...newUser, ativo: true });
-    setShowModal(false);
-    setNewUser({ nome: '', email: '', senha: '', perfil: UserProfile.FINAL_USER });
-    setShowPass(false);
-  };
+    const filteredUsers = users.filter(u => {
+        const matchesSearch = u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase());
+        if (isProprietario) return matchesSearch;
+        return matchesSearch && u.companyId === currentUser?.companyId && u.role !== 'proprietario';
+    });
 
-  const handleUpdate = (userId: string, perms: UserPermissions, access: boolean) => {
-    updateUserPermissions(userId, perms, access);
-  };
+    const handleCreateUser = (e: React.FormEvent) => {
+        e.preventDefault();
+        addUser({ ...newUser });
+        setShowModal(false);
+        setNewUser({ nome: '', email: '', senha: '', role: 'vendedor' });
+        setShowPass(false);
+    };
 
-  const handleResetPassword = (userId: string) => {
-    const newPass = prompt('Informe a nova senha manual (Mínimo 6 caracteres):');
-    if (newPass && newPass.trim().length >= 6) {
-      changeUserPassword(userId, newPass);
-      alert('Senha do colaborador alterada!');
-    } else if (newPass) {
-      alert('Senha muito curta.');
-    }
-  };
+    const handleUpdate = (userId: string, perms: UserPermissions, access: boolean) => {
+        updateUserPermissions(userId, perms, access);
+    };
 
-  return (
-    <div className="space-y-8 animate-in fade-in max-w-7xl mx-auto pb-20">
-      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex-1 w-full">
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-            <input 
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-              placeholder="Buscar colaboradores por nome ou e-mail..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        {(isProprietario || isSuperAdmin || isAdmin) && (
-          <button 
-            onClick={() => setShowModal(true)} 
-            className="w-full md:w-auto action-bg text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-95 transition-all shadow-lg active:scale-95 cursor-pointer"
-          >
-            + Novo Colaborador
-          </button>
-        )}
-      </div>
+    const handleResetPassword = (userId: string) => {
+        const newPass = prompt('Informe a nova senha manual (Mínimo 6 caracteres):');
+        if (newPass && newPass.trim().length >= 6) {
+            changeUserPassword(userId, newPass);
+            alert('Senha do colaborador alterada!');
+        } else if (newPass) {
+            alert('Senha muito curta.');
+        }
+    };
 
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <th className="px-6 py-4">Colaborador / Perfil</th>
-              <th className="px-6 py-4">Autorização de Acesso</th>
-              <th className="px-6 py-4">Acessos a Módulos</th>
-              <th className="px-6 py-4 text-right">Controle Global</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredUsers.map(user => (
-              <UserRow 
-                key={user.id}
-                user={user}
-                isCurrent={user.id === currentUser?.id}
-                isProprietario={isProprietario}
-                companyName={companies.find(c => c.id === user.companyId)?.nome}
-                canEdit={isProprietario || isSuperAdmin || isAdmin}
-                onUpdate={handleUpdate}
-                onResetPass={handleResetPassword}
-                onDelete={(id) => { if(confirm('Remover este acesso permanentemente?')) deleteUser(id); }}
-              />
-            ))}
-            {filteredUsers.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-20 text-center text-slate-400 italic font-medium">Nenhum usuário localizado.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 animate-in zoom-in duration-200">
-            <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Novo Colaborador</h4>
-              <button onClick={() => { setShowModal(false); setShowPass(false); }} className="text-slate-400 hover:text-slate-900 text-xl font-bold p-2 cursor-pointer">✕</button>
-            </div>
-            <form onSubmit={handleCreateUser} className="p-8 space-y-5">
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nome Completo</label>
-                <input required className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none" value={newUser.nome} onChange={e => setNewUser({...newUser, nome: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">E-mail Corporativo</label>
-                <input required type="email" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nível de Função</label>
-                <select className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" value={newUser.perfil} onChange={e => setNewUser({...newUser, perfil: e.target.value as UserProfile})}>
-                  <option value={UserProfile.ADMIN}>Supervisor (ADMIN)</option>
-                  <option value={UserProfile.FINAL_USER}>Vendedor (FINAL USER)</option>
-                  {isPlatformMaster && <option value={UserProfile.SUPER_ADMIN}>Diretor (SUPER_ADMIN)</option>}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Senha Inicial</label>
-                <div className="relative">
-                  <input 
-                    required 
-                    type={showPass ? "text" : "password"} 
-                    minLength={6} 
-                    className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" 
-                    value={newUser.senha} 
-                    onChange={e => setNewUser({...newUser, senha: e.target.value})} 
-                  />
-                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600">
-                    {showPass ? "🙈" : "👁️"}
-                  </button>
+    return (
+        <div className="space-y-8 animate-in fade-in max-w-7xl mx-auto pb-20">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex-1 w-full">
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                            placeholder="Buscar colaboradores por nome ou e-mail..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
-              </div>
-              <button type="submit" className="w-full action-bg text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs hover:brightness-90 shadow-xl cursor-pointer">Criar Acesso</button>
-            </form>
-          </div>
+                {isProprietario && (
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="w-full md:w-auto action-bg text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-95 transition-all shadow-lg active:scale-95 cursor-pointer"
+                    >
+                        + Novo Colaborador
+                    </button>
+                )}
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <th className="px-6 py-4">Colaborador / Perfil</th>
+                            <th className="px-6 py-4">Autorização de Acesso</th>
+                            <th className="px-6 py-4">Acessos a Módulos</th>
+                            <th className="px-6 py-4 text-right">Controle Global</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {filteredUsers.map(user => (
+                            <UserRow
+                                key={user.id}
+                                user={user}
+                                isCurrent={user.id === currentUser?.id}
+                                isProprietario={isProprietario}
+                                companyName={companies.find(c => c.id === user.companyId)?.nome}
+                                canEdit={isProprietario}
+                                onUpdate={handleUpdate}
+                                onResetPass={handleResetPassword}
+                                onDelete={(id) => { if (confirm('Remover este acesso permanentemente?')) deleteUser(id); }}
+                            />
+                        ))}
+                        {filteredUsers.length === 0 && (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-20 text-center text-slate-400 italic font-medium">Nenhum usuário localizado.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {showModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 animate-in zoom-in duration-200">
+                        <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                            <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Novo Colaborador</h4>
+                            <button onClick={() => { setShowModal(false); setShowPass(false); }} className="text-slate-400 hover:text-slate-900 text-xl font-bold p-2 cursor-pointer">✕</button>
+                        </div>
+                        <form onSubmit={handleCreateUser} className="p-8 space-y-5">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nome Completo</label>
+                                <input required className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none" value={newUser.nome} onChange={e => setNewUser({ ...newUser, nome: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">E-mail Corporativo</label>
+                                <input required type="email" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-blue-500 outline-none" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nível de Função</label>
+                                <select className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
+                                    <option value="supervisor">Supervisor</option>
+                                    <option value="vendedor">Vendedor</option>
+                                    {isPlatformMaster && <option value="proprietario">Proprietário</option>}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Senha Inicial</label>
+                                <div className="relative">
+                                    <input
+                                        required
+                                        type={showPass ? "text" : "password"}
+                                        minLength={6}
+                                        className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none"
+                                        value={newUser.senha}
+                                        onChange={e => setNewUser({ ...newUser, senha: e.target.value })}
+                                    />
+                                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600">
+                                        {showPass ? "🙈" : "👁️"}
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" className="w-full action-bg text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs hover:brightness-90 shadow-xl cursor-pointer">Criar Acesso</button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default UsersPermissions;

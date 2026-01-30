@@ -1,7 +1,7 @@
 {
-  "name": "Copy 2 of V3 Jornada CRM - IbacBrasil",
-  "description": "A high-performance CRM inspired by RD Station, featuring lead management with strict uniqueness rules, configurable pipelines, deal history, and FluentCRM spreadsheet import capability.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+    "name": "Copy 2 of V3 Jornada CRM - IbacBrasil",
+    "description": "A high-performance CRM inspired by RD Station, featuring lead management with strict uniqueness rules, configurable pipelines, deal history, and FluentCRM spreadsheet import capability.",
+    "requestFramePermissions": [
+        "camera"
+    ]
 }

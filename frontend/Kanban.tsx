@@ -36,7 +36,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
     const [discountValue, setDiscountValue] = useState<number>(0);
 
     // Verificação de Permissão - Bloqueia manipulação por usuários sem permissão específica
-    const hasPermission = currentUser?.permissions.negociacoes || currentUser?.perfil === 'PROPRIETARIO' || currentUser?.perfil === 'SUPER_ADMIN';
+    const hasPermission = currentUser?.role === 'proprietario' || currentUser?.role === 'supervisor' || currentUser?.acessos?.includes('negocios');
 
     // Estados para nova tarefa
     const [showTaskForm, setShowTaskForm] = useState(false);
@@ -357,9 +357,8 @@ const Kanban: React.FC = () => {
     const [filterRating, setFilterRating] = useState<number | 'all'>('all');
     const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
-
     // Verificação de Permissão Global para Kanban
-    const canInteract = currentUser?.permissions.negociacoes || currentUser?.perfil === 'PROPRIETARIO' || currentUser?.perfil === 'SUPER_ADMIN';
+    const canInteract = currentUser?.role === 'proprietario' || currentUser?.role === 'supervisor' || currentUser?.acessos?.includes('negocios');
 
     const activeDeals = deals.filter(d => {
         const lead = leads.find(l => String(l.id) === String(d.lead_id));
@@ -416,7 +415,7 @@ const Kanban: React.FC = () => {
                             🔄
                         </button>
                         <select className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-2.5 font-black text-blue-700 text-xs uppercase cursor-pointer outline-none" value={activePipelineId || ''} onChange={e => setActivePipelineId(e.target.value)}>
-                            {pipelines.filter(p => p.companyId === currentUser?.companyId && !p.deletado).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                            {pipelines.filter(p => p.companyId === currentUser?.companyId).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                         </select>
                         <select className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 font-black text-slate-500 text-xs uppercase cursor-pointer outline-none" value={filterRating} onChange={e => setFilterRating(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
                             <option value="all">Todas as Estrelas</option>

@@ -1,607 +1,602 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { 
-  User, UserProfile, Lead, Pipeline, PipelineStage, Company,
-  Deal, DealStatus, DealEvent, EventType, Task, TaskType, TaskStatus, Product, DealProduct, UserPermissions, Notification, PersonType
+import CryptoJS from 'crypto-js'; // Importação adicionada
+import {
+    User, UserProfile, Lead, Pipeline, PipelineStage, Company,
+    Deal, DealStatus, DealEvent, EventType, Task, TaskType, TaskStatus, Product, DealProduct, UserPermissions, Notification, PersonType
 } from './types';
+import { SECRET, SALT, API_URL } from './env';
 
 interface CRMContextType {
-  companies: Company[];
-  users: User[];
-  leads: Lead[];
-  pipelines: Pipeline[];
-  stages: PipelineStage[];
-  deals: Deal[];
-  events: DealEvent[];
-  tasks: Task[];
-  products: Product[];
-  dealProducts: DealProduct[];
-  notifications: Notification[];
-  currentUser: User | null;
-  currentCompany: Company | null;
-  activePipelineId: string | null;
-  setActivePipelineId: (id: string) => void;
-  login: (email: string, pass: string) => boolean;
-  logout: () => void;
-  addCompany: (company: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => void;
-  updateCompany: (company: Company) => void;
-  deleteCompany: (id: string, reason: string) => void;
-  addLead: (lead: Omit<Lead, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; error?: string; lead?: Lead };
-  updateLead: (lead: Lead) => void;
-  deleteLead: (leadId: string, reason: string) => void;
-  restoreLead: (leadId: string) => void;
-  batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
-  importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
-  syncLeadsFromFluent: (config: { tags?: string[]; lists?: string[] }) => { imported: number; updated: number };
-  updateLeadClassificacao: (leadId: string, classificacao: number) => void;
-  addPipeline: (nome: string) => void;
-  updatePipeline: (id: string, nome: string) => void;
-  deletePipeline: (id: string, justification?: string) => void;
-  addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
-  moveDeal: (dealId: string, stageId: string) => void;
-  updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => void;
-  updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;
-  addEvent: (dealId: string, type: EventType, description: string) => void;
-  addDealProduct: (dealId: string, productId: string) => void;
-  deleteDealProduct: (dealProductId: string) => void;
-  addTask: (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => void;
-  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
-  deleteTask: (taskId: string) => void;
-  addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => void;
-  deleteUser: (userId: string) => void;
-  changeUserPassword: (userId: string, newPass: string) => void;
-  resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
-  updateUser: (user: User) => void;
-  updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
-  addStage: (pipelineId: string, nome: string) => void;
-  deleteStage: (id: string, justification?: string) => void;
-  updateStage: (id: string, nome: string) => void;
-  reorderStages: (newStages: PipelineStage[]) => void;
-  addProduct: (product: Omit<Product, 'id' | 'companyId'>) => void;
-  updateProduct: (product: Product) => void;
-  deleteProduct: (id: string, justification?: string) => void;
-  approveNotification: (id: string) => void;
-  rejectNotification: (id: string) => void;
+    companies: Company[];
+    users: User[];
+    leads: Lead[];
+    pipelines: Pipeline[];
+    stages: PipelineStage[];
+    deals: Deal[];
+    events: DealEvent[];
+    tasks: Task[];
+    products: Product[];
+    dealProducts: DealProduct[];
+    notifications: Notification[];
+    currentUser: User | null;
+    currentCompany: Company | null;
+    activePipelineId: string | null;
+    setActivePipelineId: (id: string) => void;
+    login: (email: string, pass: string) => Promise<boolean>;
+    logout: () => void;
+    addCompany: (company: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => Promise<void>;
+    updateCompany: (company: Company) => Promise<void>;
+    deleteCompany: (id: string, reason: string) => Promise<void>;
+    addLead: (lead: Omit<Lead, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'> & { funilId?: string, etapaId?: string, produto?: string }) => Promise<{ success: boolean; error?: string; lead?: Lead }>;
+    updateLead: (lead: Lead) => Promise<void>;
+    deleteLead: (leadId: string, reason: string) => Promise<void>;
+    restoreLead: (leadId: string) => void;
+    batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
+    importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
+    syncLeadsFromFluent: (config: { tags?: string[]; lists?: string[] }) => { imported: number; updated: number };
+    updateLeadClassificacao: (leadId: string, classificacao: number) => void;
+    addPipeline: (nome: string) => Promise<void>;
+    updatePipeline: (id: string, nome: string) => Promise<void>;
+    deletePipeline: (id: string, justification?: string) => Promise<void>;
+    addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
+    moveDeal: (dealId: string, stageId: string) => Promise<void>;
+    updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => void;
+    updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;
+    addEvent: (dealId: string, type: EventType, description: string) => void;
+    addDealProduct: (dealId: string, productId: string) => void;
+    deleteDealProduct: (dealProductId: string) => void;
+    addTask: (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => void;
+    updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+    deleteTask: (taskId: string) => void;
+    addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => Promise<void>;
+    deleteUser: (userId: string) => void;
+    changeUserPassword: (userId: string, newPass: string) => Promise<void>;
+    resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
+    updateUser: (user: User) => void;
+    updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
+    addStage: (pipelineId: string, nome: string) => Promise<void>;
+    deleteStage: (id: string, justification?: string) => void;
+    updateStage: (id: string, nome: string) => Promise<void>;
+    reorderStages: (newStages: PipelineStage[]) => Promise<void>;
+    addProduct: (product: Omit<Product, 'id' | 'companyId'>) => void;
+    updateProduct: (product: Product) => void;
+    deleteProduct: (id: string, justification?: string) => void;
+    approveNotification: (id: string) => void;
+    rejectNotification: (id: string) => void;
 }
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
-const superPermissions: UserPermissions = {
-  leads: true, 
-  negociacoes: true, 
-  importacao: true, 
-  relatorios: true, 
-  produtos: true, 
-  configuracoes: true, 
-  branding: true,
-  pipelines: true,
-  tarefas: true
+const mapMongoToFront = (data: any) => {
+    if (!data) return data;
+    if (Array.isArray(data)) return data.map(item => ({ ...item, id: item._id }));
+    return { ...data, id: data._id };
 };
 
-const TEST_COMPANY_ID_1 = 'comp_andre_teste';
-const TEST_USER_EMAIL_1 = 'ANDREFELIPEGALVAO@GMAIL.COM';
+// Função para mapear funis com campos padrão
+const mapFunilToFront = (data: any): any[] => {
+    if (Array.isArray(data)) {
+        return data.map(funil => {
+            const empresaId = typeof funil.empresa === 'object' ? funil.empresa?._id : funil.empresa;
+            return {
+                id: funil._id,
+                nome: funil.nome,
+                companyId: empresaId,
+                criado_em: funil.createdAt,
+                atualizado_em: funil.updatedAt
+            };
+        });
+    }
+    const empresaId = typeof data.empresa === 'object' ? data.empresa?._id : data.empresa;
+    return [{ 
+        id: data._id, 
+        nome: data.nome,
+        companyId: empresaId,
+        criado_em: data.createdAt,
+        atualizado_em: data.updatedAt
+    }];
+};
 
-const TEST_COMPANY_ID_2 = 'comp_ibac_teste';
-const TEST_USER_EMAIL_2 = 'teste@ibacbrasil.com';
+// Função para mapear etapas com campos padrão
+const mapEtapaToFront = (data: any) => {
+    if (Array.isArray(data)) {
+        return data.map(etapa => {
+            const funilId = typeof etapa.funil === 'object' ? etapa.funil?._id : etapa.funil;
+            return {
+                id: etapa._id,
+                nome: etapa.nome,
+                ordem: etapa.ordem !== undefined ? etapa.ordem : 0,
+                funil: funilId,
+                pipeline_id: funilId, // Alias para compatibilidade
+                criado_em: etapa.createdAt,
+                atualizado_em: etapa.updatedAt
+            };
+        });
+    }
+    const funilId = typeof data.funil === 'object' ? data.funil?._id : data.funil;
+    return { 
+        id: data._id, 
+        nome: data.nome,
+        ordem: data.ordem !== undefined ? data.ordem : 0,
+        funil: funilId,
+        pipeline_id: funilId,
+        criado_em: data.createdAt,
+        atualizado_em: data.updatedAt
+    };
+};
+
+// Função auxiliar de criptografia para manter padrão
+const encryptPassword = (password: string) => {
+    return CryptoJS.AES.encrypt(password + SALT, SECRET).toString();
+};
 
 export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [companies, setCompanies] = useState<Company[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_companies') || '[]');
-    if (!list.some((c: any) => c.id === TEST_COMPANY_ID_1)) {
-      list.push({ id: TEST_COMPANY_ID_1, nome: 'André TESTE', documento: '096.175.29-41', logo_url: '', cor_primaria: '#0f172a', cor_secundaria: '#2563eb', cor_terciaria: '#0f172a', ativa: true, criado_em: new Date().toISOString() });
-    }
-    if (!list.some((c: any) => c.id === TEST_COMPANY_ID_2)) {
-      list.push({ id: TEST_COMPANY_ID_2, nome: 'IbacBrasilTESTE', documento: '000.000.000-00', logo_url: '', cor_primaria: '#1e293b', cor_secundaria: '#10b981', cor_terciaria: '#0f172a', ativa: true, criado_em: new Date().toISOString() });
-    }
-    return list;
-  });
-
-  const [users, setUsers] = useState<User[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_users') || '[]');
-    if (!list.some((u: any) => u.email === 'marketing@ibacbrasil.com')) {
-      list.push({ id: 'prop_1', nome: 'Marketing IbacBrasil', email: 'marketing@ibacbrasil.com', senha: 'JornadaMKT26!', perfil: UserProfile.PROPRIETARIO, ativo: true, acesso_confirmado: true, permissions: superPermissions, criado_em: new Date().toISOString() });
-    }
-    if (!list.some((u: any) => u.email.toUpperCase() === TEST_USER_EMAIL_1)) {
-      list.push({ id: 'gestor_andre', companyId: TEST_COMPANY_ID_1, nome: 'ANDRÉ GALVÃO', email: TEST_USER_EMAIL_1, senha: 'An@@2027', perfil: UserProfile.SUPER_ADMIN, ativo: true, acesso_confirmado: true, permissions: superPermissions, criado_em: new Date().toISOString() });
-    }
-    if (!list.some((u: any) => u.email.toLowerCase() === TEST_USER_EMAIL_2)) {
-      list.push({ id: 'gestor_ibac_teste', companyId: TEST_COMPANY_ID_2, nome: 'IbacBrasil Teste', email: TEST_USER_EMAIL_2, senha: '123456789', perfil: UserProfile.SUPER_ADMIN, ativo: true, acesso_confirmado: true, permissions: superPermissions, criado_em: new Date().toISOString() });
-    }
-    return list;
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => JSON.parse(localStorage.getItem('crm_current_user') || 'null'));
-  
-  const [pipelines, setPipelines] = useState<Pipeline[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_pipelines') || '[]');
-    const now = new Date().toISOString();
-    if (!list.some((p: any) => p.companyId === TEST_COMPANY_ID_1)) {
-      list.push({ id: 'pipe_default_1', companyId: TEST_COMPANY_ID_1, nome: 'Funil de Vendas Principal', ativo: true, criado_em: now });
-    }
-    if (!list.some((p: any) => p.companyId === TEST_COMPANY_ID_2)) {
-      list.push({ id: 'pipe_default_2', companyId: TEST_COMPANY_ID_2, nome: 'Funil Ibac Teste', ativo: true, criado_em: now });
-    }
-    return list;
-  });
-
-  const [stages, setStages] = useState<PipelineStage[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_stages') || '[]');
-    const defaultStagesNames = ['Lead Novo', 'Em Contato', 'Solução Apresentada', 'Negociação', 'Decisão Final', 'Vendido | Perdido'];
-    
-    if (!list.some((s: any) => s.pipeline_id === 'pipe_default_1')) {
-      defaultStagesNames.forEach((nome, index) => {
-        list.push({ id: `stg_init_1_${index}`, pipeline_id: 'pipe_default_1', nome, ordem: index, ativo: true });
-      });
-    }
-    if (!list.some((s: any) => s.pipeline_id === 'pipe_default_2')) {
-      defaultStagesNames.forEach((nome, index) => {
-        list.push({ id: `stg_init_2_${index}`, pipeline_id: 'pipe_default_2', nome, ordem: index, ativo: true });
-      });
-    }
-    return list;
-  });
-
-  const [products, setProducts] = useState<Product[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_products') || '[]');
-    if (!list.some((p: any) => p.companyId === TEST_COMPANY_ID_1)) {
-      list.push({ id: 'prod_default_1', companyId: TEST_COMPANY_ID_1, nome: 'PRIMEIRA CARTEIRA', valor_total: 50.00, parcelas: 1 });
-    }
-    if (!list.some((p: any) => p.companyId === TEST_COMPANY_ID_2)) {
-      list.push({ id: 'prod_default_2', companyId: TEST_COMPANY_ID_2, nome: 'CURSO DE TESTE', valor_total: 100.00, parcelas: 1 });
-    }
-    return list;
-  });
-
-  const [leads, setLeads] = useState<Lead[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_leads') || '[]');
-    const hasTestData = list.some((l: any) => l.companyId === TEST_COMPANY_ID_2);
-    
-    if (!hasTestData) {
-      const now = new Date().toISOString();
-      const testLeads = [
-        { id: 'lead_t1', nome: 'Raqueli', email: 'karpinskiraqueli@gmail.com', wa: '54996561146', tags: 'Baixou o Simulado Relâmpago, Em funil de isca' },
-        { id: 'lead_t2', nome: 'Catarina Chaves', email: 'catarinadschaves@gmail.com', wa: '71994012468', tags: 'Baixou o E-book guia definitivo, Baixou o Simulado Relâmpago, Em funil de isca' },
-        { id: 'lead_t3', nome: 'Izabelle', email: 'izabellevitoria041@gmail.com', wa: '79988177620', tags: 'Baixou o E-book guia definitivo' },
-        { id: 'lead_t4', nome: 'Luisa da Costa Moreira', email: 'luisamooreira@outlook.com', wa: '51994018181', tags: 'Baixou o E-book guia definitivo' },
-        { id: 'lead_t5', nome: 'Jean Luc Mendonca Ribeiro', email: 'jeancorico123@gmail.com', wa: '(66) 99204-6366', tags: 'Baixou o E-book guia definitivo, Comprou o curso completo' },
-        { id: 'lead_t6', nome: 'Nilcelene Casimiro', email: 'nil_casi@hotmail.com', wa: '48991633572', tags: 'Baixou o E-book guia definitivo' },
-        { id: 'lead_t7', nome: 'Kauan Victor Felizardo da Silva', email: 'kauanvictorsilva2006@gmail.com', wa: '(66) 98410-1475', tags: '' },
-        { id: 'lead_t8', nome: 'Maria Eduarda Da Silva Vollkopf', email: 'vollkopfmadu@gmail.com', wa: '(67) 98411-5406', tags: '' },
-        { id: 'lead_t9', nome: 'Lourani Ferreira', email: 'louraneferreiradorosariorosari@gmail.com', wa: '(33) 8448-3716', tags: '' },
-        { id: 'lead_t10', nome: 'Mauricio Gomes de Oliveira', email: 'gomesoliveira06@gmail.com', wa: '61985938295', tags: '' },
-        { id: 'lead_t11', nome: 'Giovanna', email: 'giovannardsdo@gmail.com', wa: '63984123565', tags: '' },
-        { id: 'lead_t12', nome: 'sandra maria moscatelli', email: 'moscatelli.niki@gmail.com', wa: '94991017436', tags: 'Baixou o E-book guia definitivo, Em funil de isca' },
-      ];
-
-      testLeads.forEach(l => {
-        list.push({
-          id: l.id,
-          companyId: TEST_COMPANY_ID_2,
-          nome_completo: l.nome,
-          email: l.email,
-          whatsapp: l.wa,
-          campanha: l.tags ? l.tags.split(',')[0] : 'Base de Teste',
-          tipo_pessoa: PersonType.PF,
-          classificacao: 3,
-          criado_em: now,
-          atualizado_em: now,
-          deletado: false,
-          responsavel_id: 'gestor_ibac_teste'
-        });
-      });
-    }
-    return list;
-  });
-
-  const [deals, setDeals] = useState<Deal[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_deals') || '[]');
-    const hasTestData = list.some((d: any) => d.companyId === TEST_COMPANY_ID_2);
-    
-    if (!hasTestData) {
-      const now = new Date().toISOString();
-      for (let idx = 0; idx < 12; idx++) {
-        list.push({
-          id: `deal_test_${idx}`,
-          companyId: TEST_COMPANY_ID_2,
-          lead_id: `lead_t${idx+1}`,
-          pipeline_id: 'pipe_default_2',
-          stage_id: 'stg_init_2_0', 
-          responsavel_id: 'gestor_ibac_teste',
-          status: DealStatus.ABERTA,
-          criado_em: now,
-          atualizado_em: now
-        });
-      }
-    }
-    return list;
-  });
-
-  const [events, setEvents] = useState<DealEvent[]>(() => {
-    let list = JSON.parse(localStorage.getItem('crm_events') || '[]');
-    const hasTestData = list.some((e: any) => e.deal_id.startsWith('deal_test_'));
-    
-    if (!hasTestData) {
-      const now = new Date().toISOString();
-      for (let i = 0; i < 12; i++) {
-        list.push({
-          id: `event_test_${i}`,
-          deal_id: `deal_test_${i}`,
-          tipo_evento: EventType.CRIACAO,
-          descricao: 'Lead importado automaticamente para o ambiente de testes IbacBrasil.',
-          criado_em: now,
-          autor_id: 'system'
-        });
-      }
-    }
-    return list;
-  });
-
-  const [tasks, setTasks] = useState<Task[]>(() => JSON.parse(localStorage.getItem('crm_tasks') || '[]'));
-  const [dealProducts, setDealProducts] = useState<DealProduct[]>(() => JSON.parse(localStorage.getItem('crm_deal_products') || '[]'));
-  const [notifications, setNotifications] = useState<Notification[]>(() => JSON.parse(localStorage.getItem('crm_notifications') || '[]'));
-  
-  const [activePipelineId, setActivePipelineId] = useState<string | null>(() => {
-    const saved = localStorage.getItem('crm_active_pipeline_id');
-    if (saved) return saved;
-    return currentUser?.companyId === TEST_COMPANY_ID_2 ? 'pipe_default_2' : 'pipe_default_1';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('crm_companies', JSON.stringify(companies));
-    localStorage.setItem('crm_users', JSON.stringify(users));
-    localStorage.setItem('crm_pipelines', JSON.stringify(pipelines));
-    localStorage.setItem('crm_stages', JSON.stringify(stages));
-    localStorage.setItem('crm_leads', JSON.stringify(leads));
-    localStorage.setItem('crm_deals', JSON.stringify(deals));
-    localStorage.setItem('crm_events', JSON.stringify(events));
-    localStorage.setItem('crm_tasks', JSON.stringify(tasks));
-    localStorage.setItem('crm_products', JSON.stringify(products));
-    localStorage.setItem('crm_deal_products', JSON.stringify(dealProducts));
-    localStorage.setItem('crm_notifications', JSON.stringify(notifications));
-    localStorage.setItem('crm_current_user', JSON.stringify(currentUser));
-    if (activePipelineId) localStorage.setItem('crm_active_pipeline_id', activePipelineId);
-  }, [companies, users, pipelines, stages, leads, deals, events, tasks, products, dealProducts, notifications, currentUser, activePipelineId]);
-
-  const currentCompany = useMemo(() => {
-    if (!currentUser) return null;
-    return companies.find(c => c.id === currentUser.companyId) || companies[0] || null;
-  }, [companies, currentUser]);
-
-  const login = (email: string, pass: string) => {
-    const user = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim() && u.senha === pass && u.ativo);
-    if (user) { 
-      setCurrentUser(user);
-      const companyPipe = pipelines.find(p => p.companyId === user.companyId && !p.deletado);
-      if (companyPipe) setActivePipelineId(companyPipe.id);
-      return true; 
-    }
-    return false;
-  };
-  const logout = () => setCurrentUser(null);
-
-  const addCompany = (companyData: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => {
-    const newId = 'comp_' + Math.random().toString(36).substr(2, 9);
-    const newCompany: Company = { ...companyData, id: newId, criado_em: new Date().toISOString(), ativa: true };
-    setCompanies(prev => [...prev, newCompany]);
-    
-    if (adminData) {
-      addUser({ 
-        nome: adminData.nome, 
-        email: adminData.email, 
-        senha: adminData.senha, 
-        perfil: UserProfile.SUPER_ADMIN, 
-        ativo: true, 
-        companyId: newId 
-      });
-    }
-  };
-
-  const updateCompany = (updated: Company) => {
-    setCompanies(prev => prev.map(c => c.id === updated.id ? updated : c));
-  };
-
-  const deleteCompany = (id: string, reason: string) => {
-    setCompanies(prev => prev.map(c => c.id === id ? { ...c, deletado: true, data_exclusao: new Date().toISOString(), motivo_exclusao: reason } : c));
-  };
-
-  const addEvent = (did: string, t: EventType, d: string) => {
-    setEvents(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), deal_id: String(did), tipo_evento: t, descricao: d, criado_em: new Date().toISOString(), autor_id: currentUser?.id || 'system' }]);
-  };
-
-  const updateDealStatus = (id: string, s: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => {
-    const dealIdStr = String(id);
-    const now = new Date().toISOString();
-
-    setDeals(prev => prev.map(d => {
-      if (String(d.id) === dealIdStr) {
-        const pipeStages = stages.filter(stg => stg.pipeline_id === d.pipeline_id && !stg.deletado).sort((a,b) => a.ordem - b.ordem);
-        const lastStage = pipeStages[pipeStages.length - 1];
-        
-        return { 
-          ...d, 
-          status: s, 
-          stage_id: (s === DealStatus.GANHA || s === DealStatus.PERDIDA) && lastStage ? lastStage.id : d.stage_id,
-          atualizado_em: now 
-        };
-      }
-      return d;
-    }));
-
-    if (s === DealStatus.GANHA && discountInfo && discountInfo.value > 0) {
-        setDealProducts(prev => {
-            const dealProds = prev.filter(dp => String(dp.deal_id) === dealIdStr);
-            const totalOriginal = dealProds.reduce((sum, item) => sum + Number(item.valor), 0);
-            
-            return prev.map(dp => {
-                if (String(dp.deal_id) === dealIdStr) {
-                    let newValue = Number(dp.valor);
-                    if (discountInfo.type === 'percentage') {
-                        newValue = newValue * (1 - (discountInfo.value / 100));
-                    } else if (discountInfo.type === 'fixed') {
-                        const proportion = totalOriginal > 0 ? dp.valor / totalOriginal : 0;
-                        newValue = newValue - (discountInfo.value * proportion);
-                    }
-                    return { ...dp, valor: Math.max(0, newValue) };
-                }
-                return dp;
-            });
-        });
-    }
-
-    let desc = '';
-    if (s === DealStatus.GANHA) {
-        const discountText = discountInfo && discountInfo.value > 0 
-            ? ` (Desconto: ${discountInfo.type === 'percentage' ? discountInfo.value + '%' : 'R$ ' + discountInfo.value.toLocaleString('pt-BR')})` 
-            : '';
-        desc = `GANHO!${discountText} Obs: ${reason || 'S/ observações'}`;
-    } else if (s === DealStatus.PERDIDA) {
-        desc = `PERDIDO. Motivo: ${reason}`;
-    } else {
-        desc = `Alterado para ${s}`;
-    }
-    
-    addEvent(dealIdStr, EventType.STATUS, desc);
-  };
-
-  const deleteLead = (id: string, reason: string) => {
-    if (currentUser?.perfil === UserProfile.PROPRIETARIO || currentUser?.perfil === UserProfile.SUPER_ADMIN) {
-      setLeads(prev => prev.map(l => l.id === id ? { ...l, deletado: true, data_exclusao: new Date().toISOString(), motivo_exclusao: reason } : l));
-    } else {
-      const lead = leads.find(l => l.id === id);
-      if (!lead) return;
-      setLeads(prev => prev.map(l => l.id === id ? { ...l, exclusao_pendente: true } : l));
-      setNotifications(prev => [...prev, {
-        id: Math.random().toString(36).substr(2, 9),
-        companyId: currentUser?.companyId || TEST_COMPANY_ID_1,
-        userId: currentUser?.id || '',
-        userName: currentUser?.nome || '',
-        type: 'LEAD',
-        targetId: id,
-        targetName: lead.nome_completo,
-        justificativa: reason,
-        criado_em: new Date().toISOString(),
-        lida: false
-      }]);
-    }
-  };
-
-  const deletePipeline = (id: string, justification?: string) => {
-    setPipelines(prev => prev.map(p => p.id === id ? { ...p, deletado: true, data_exclusao: new Date().toISOString(), motivo_exclusao: justification } : p));
-  };
-
-  const deleteStage = (id: string, justification?: string) => {
-    setStages(prev => prev.map(s => s.id === id ? { ...s, deletado: true, data_exclusao: new Date().toISOString(), motivo_exclusao: justification } : s));
-  };
-
-  const deleteProduct = (id: string, justification?: string) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, deletado: true, data_exclusao: new Date().toISOString(), motivo_exclusao: justification } : p));
-  };
-
-  const deleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
-  };
-
-  const addLead = (leadData: any) => {
-    const leadId = Math.random().toString(36).substr(2, 9);
-    const newLead: Lead = { ...leadData, id: leadId, companyId: currentUser?.companyId || TEST_COMPANY_ID_1, criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString(), deletado: false };
-    setLeads(prev => [...prev, newLead]);
-    return { success: true, lead: newLead };
-  };
-
-  const updateLead = (updated: Lead) => {
-    setLeads(prev => prev.map(l => l.id === updated.id ? { ...updated, atualizado_em: new Date().toISOString() } : l));
-  };
-
-  const importLeads = (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => {
-    const cid = currentUser?.companyId || TEST_COMPANY_ID_1;
-    let pipe = pipelines.find(p => p.companyId === cid && !p.deletado) || pipelines[0];
-    const pipeStages = stages.filter(s => s.pipeline_id === pipe?.id && !s.deletado).sort((a,b) => a.ordem - b.ordem);
-    const firstStage = pipeStages[0] || { id: 'default_stg' };
-    const companyUsers = users.filter(u => u.companyId === cid && u.ativo);
-    const availableProducts = products.filter(p => p.companyId === cid && !p.deletado);
-    
-    const newLeadsBatch: Lead[] = [];
-    const newDealsBatch: Deal[] = [];
-    const newEventsBatch: DealEvent[] = [];
-    const newDealProductsBatch: DealProduct[] = [];
-    const failedImports: { row: number; reason: string }[] = [];
-
-    data.forEach((item, index) => {
-      const existsInDB = leads.some(l => 
-        (item.email && l.email.toLowerCase() === item.email.toLowerCase()) || 
-        (item.whatsapp && l.whatsapp === item.whatsapp)
-      );
-
-      const existsInBatch = newLeadsBatch.some(l => 
-        (item.email && l.email.toLowerCase() === item.email.toLowerCase()) || 
-        (item.whatsapp && l.whatsapp === item.whatsapp)
-      );
-
-      if (existsInDB || existsInBatch) {
-        failedImports.push({ row: index + 1, reason: 'Duplicado.' });
-        return;
-      }
-
-      if (!item.nome_completo || (!item.email && !item.whatsapp)) {
-        failedImports.push({ row: index + 1, reason: 'Dados incompletos.' });
-        return;
-      }
-
-      const lid = Math.random().toString(36).substr(2, 9);
-      const now = new Date().toISOString();
-      let respId = allocation.userId || currentUser?.id || 'system';
-      if (allocation.mode === 'distribute' && companyUsers.length > 0) respId = companyUsers[index % companyUsers.length].id;
-      
-      newLeadsBatch.push({ 
-        ...item, 
-        id: lid, 
-        companyId: cid, 
-        responsavel_id: respId, 
-        criado_em: now, 
-        atualizado_em: now, 
-        deletado: false, 
-        classificacao: item.classificacao || 1 
-      });
-
-      if (pipe) {
-        const did = Math.random().toString(36).substr(2, 9);
-        newDealsBatch.push({ id: did, companyId: cid, lead_id: lid, pipeline_id: pipe.id, stage_id: firstStage.id, responsavel_id: respId, status: DealStatus.ABERTA, criado_em: now, atualizado_em: now });
-        newEventsBatch.push({ id: Math.random().toString(36).substr(2, 9), deal_id: did, tipo_evento: EventType.CRIACAO, descricao: 'Importado.', criado_em: now, autor_id: currentUser?.id || 'system' });
-        
-        if (item.produto) {
-            const matchedProduct = availableProducts.find(p => p.nome.toLowerCase().trim() === item.produto.toLowerCase().trim());
-            if (matchedProduct) {
-                newDealProductsBatch.push({
-                    id: Math.random().toString(36).substr(2, 9),
-                    deal_id: did,
-                    product_id: matchedProduct.id,
-                    valor: matchedProduct.valor_total,
-                    parcelas: matchedProduct.parcelas
-                });
-            }
-        }
-      }
+    const [companies, setCompanies] = useState<Company[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [currentUser, setCurrentUser] = useState<User | null>(() => {
+        const saved = localStorage.getItem('crm_current_user');
+        return saved ? JSON.parse(saved) : null;
     });
 
-    setLeads(prev => [...prev, ...newLeadsBatch]);
-    setDeals(prev => [...prev, ...newDealsBatch]);
-    setEvents(prev => [...prev, ...newEventsBatch]);
-    setDealProducts(prev => [...prev, ...newDealProductsBatch]);
+    const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+    const [stages, setStages] = useState<PipelineStage[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [deals, setDeals] = useState<Deal[]>([]);
+    const [events, setEvents] = useState<DealEvent[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [dealProducts, setDealProducts] = useState<DealProduct[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    return { imported: newLeadsBatch.length, failed: failedImports };
-  };
+    const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
 
-  const addPipeline = (nome: string) => { 
-    const cid = currentCompany?.id || currentUser?.companyId || TEST_COMPANY_ID_1;
-    const newId = Math.random().toString(36).substr(2, 9); 
-    setPipelines(prev => [...prev, { id: newId, companyId: cid, name: nome, nome, ativo: true, criado_em: new Date().toISOString() }]); 
-    setActivePipelineId(newId); 
-  };
+    const token = localStorage.getItem('token');
 
-  const addStage = (pipelineId: string, nome: string) => setStages(prev => [...prev, { id: `stg_${Math.random().toString(36).substr(2, 9)}`, pipeline_id: pipelineId, nome, ordem: prev.length, ativo: true }]);
-  const updateStage = (id: string, nome: string) => setStages(prev => prev.map(s => s.id === id ? { ...s, nome } : s));
-  const reorderStages = (newStages: PipelineStage[]) => setStages(prev => { const rest = prev.filter(s => !newStages.some(ns => ns.id === s.id)); return [...rest, ...newStages]; });
+    const authFetch = async (endpoint: string, options: RequestInit = {}) => {
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `${token}` : '',
+            ...options.headers,
+        };
+        const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+        if (response.status === 401) {
+            logout();
+            return null;
+        }
+        return response;
+    };
 
-  const addProduct = (p: any) => setProducts(prev => [...prev, { ...p, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId || TEST_COMPANY_ID_1 }]);
-  const updateProduct = (updated: Product) => setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-  
-  const addUser = (userData: any) => { setUsers(prev => [...prev, { ...userData, id: Math.random().toString(36).substr(2, 9), companyId: userData.companyId || currentUser?.companyId || TEST_COMPANY_ID_1, acesso_confirmado: true, permissions: superPermissions, criado_em: new Date().toISOString() }]); };
+    const fetchInitialData = async () => {
+        if (!currentUser || !currentUser.companyId) return;
 
-  const approveNotification = (id: string) => {
-    const notification = notifications.find(n => n.id === id);
-    if (!notification) return;
-    if (notification.type === 'LEAD') {
-      setLeads(prev => prev.map(l => l.id === notification.targetId ? { ...l, deletado: true, exclusao_pendente: false, data_exclusao: new Date().toISOString(), motivo_exclusao: notification.justificativa } : l));
-    }
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+        try {
+            setIsLoading(true); // Garante que está em loading
+            console.log('🔄 Iniciando carregamento de dados...', { companyId: currentUser.companyId });
+            
+            // Carrega dados críticos de forma síncrona
+            const [resEmpresa, resFunis] = await Promise.all([
+                authFetch('/empresa').catch(e => { console.error('❌ Erro ao buscar /empresa:', e); return null; }),
+                authFetch(`/funil/${currentUser.companyId}`).catch(e => { console.error('❌ Erro ao buscar /funil:', e); return null; })
+            ]);
 
-  const rejectNotification = (id: string) => {
-    const notification = notifications.find(n => n.id === id);
-    if (!notification) return;
-    if (notification.type === 'LEAD') {
-      setLeads(prev => prev.map(l => l.id === notification.targetId ? { ...l, exclusao_pendente: false } : l));
-    }
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+            if (resEmpresa?.ok) {
+                const data = await resEmpresa.json();
+                console.log('✅ Empresas carregadas:', data);
+                setCompanies(mapMongoToFront(data.data));
+            } else if (resEmpresa) {
+                console.warn('⚠️ GET /empresa retornou status:', resEmpresa.status);
+            }
 
-  const addTask = (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => {
-    const newTask: Task = { ...taskData, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId || TEST_COMPANY_ID_1, status: TaskStatus.PENDENTE };
-    setTasks(prev => [...prev, newTask]);
-    addEvent(taskData.deal_id, EventType.TAREFA, `Tarefa: ${taskData.titulo}`);
-  };
+            if (resFunis?.ok) {
+                const data = await resFunis.json();
+                console.log('✅ Funils carregados:', data);
+                const mappedFunis = mapFunilToFront(data.data);
+                setPipelines(mappedFunis);
 
-  const updateTaskStatus = (taskId: string, status: TaskStatus) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-  };
+                if (mappedFunis.length > 0) {
+                    const initialPipeId = mappedFunis[0].id;
+                    setActivePipelineId(initialPipeId);
+                    console.log('📌 Pipeline inicial definido:', initialPipeId);
+                    
+                    // Aguarda carregamento das etapas do primeiro funil
+                    const resEtapas = await authFetch(`/etapa/${initialPipeId}`).catch(e => {
+                        console.error('❌ Erro ao buscar /etapa:', e);
+                        return null;
+                    });
+                    if (resEtapas?.ok) {
+                        const etapaData = await resEtapas.json();
+                        console.log('✅ Etapas carregadas:', etapaData);
+                        setStages(mapEtapaToFront(etapaData.data));
+                    } else if (resEtapas) {
+                        console.warn('⚠️ GET /etapa retornou status:', resEtapas.status);
+                    }
+                }
+            } else if (resFunis) {
+                console.warn('⚠️ GET /funil retornou status:', resFunis.status);
+            }
 
-  const deleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-  };
+            // Carrega clientes de forma SÍNCRONA agora
+            const resClientes = await authFetch('/cliente').catch(e => {
+                console.error('❌ Erro ao buscar /cliente:', e);
+                return null;
+            });
+            if (resClientes?.ok) {
+                const data = await resClientes.json();
+                console.log('✅ Clientes carregados:', data);
+                const mappedClients = data.data?.map((c: any) => ({
+                    id: c._id,
+                    companyId: c.empresa?._id || c.empresa,
+                    nome_completo: c.nome,
+                    email: c.email,
+                    whatsapp: c.whatsapp,
+                    campanha: c.tag || 'Orgânico',
+                    classificacao: c.rating || 1,
+                    responsavel_id: c.responsavel?._id || c.responsavel,
+                    criado_em: c.createdAt,
+                    atualizado_em: c.updatedAt,
+                    deletado: c.excluido
+                })) || [];
+                setLeads(mappedClients);
+            } else if (resClientes) {
+                console.warn('⚠️ GET /cliente retornou status:', resClientes.status);
+            }
 
-  const updateLeadClassificacao = (id: string, classificacao: number) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, classificacao, atualizado_em: new Date().toISOString() } : l));
-  };
+            console.log('✅ Carregamento concluído com sucesso!');
+        } catch (error) {
+            console.error("❌ Erro ao carregar dados iniciais:", error);
+        } finally {
+            setIsLoading(false); // Apenas quando TUDO estiver pronto
+        }
+    };
 
-  const addDealProduct = (dealId: string, productId: string) => {
-    const product = products.find(p => String(p.id) === String(productId));
-    if (!product) return;
-    const newDp: DealProduct = { id: Math.random().toString(36).substr(2, 9), deal_id: String(dealId), product_id: String(productId), valor: product.valor_total, parcelas: product.parcelas };
-    setDealProducts(prev => [...prev, newDp]);
-    addEvent(String(dealId), EventType.ANOTACAO, `Produto: ${product.nome}`);
-  };
+    useEffect(() => {
+        if (currentUser) {
+            fetchInitialData();
+        }
+    }, [currentUser]);
 
-  const deleteDealProduct = (id: string) => {
-    setDealProducts(prev => prev.filter(item => item.id !== id));
-  };
+    useEffect(() => {
+        if (activePipelineId) {
+            const loadPipelineData = async () => {
+                const resEtapas = await authFetch(`/etapa/${activePipelineId}`);
+                if (resEtapas?.ok) {
+                    const etapaData = await resEtapas.json();
+                    setStages(mapEtapaToFront(etapaData.data));
+                }
 
-  const addDeal = (dealData: any) => {
-    const dealId = Math.random().toString(36).substr(2, 9);
-    const newDeal: Deal = { ...dealData, id: dealId, companyId: currentUser?.companyId || TEST_COMPANY_ID_1, criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString() };
-    setDeals(prev => [...prev, newDeal]);
-    addEvent(dealId, EventType.CRIACAO, 'Iniciado.');
-    return { success: true, deal: newDeal };
-  };
+                const resNegociacoes = await authFetch(`/negociacao/${activePipelineId}`);
+                if (resNegociacoes?.ok) {
+                    const negData = await resNegociacoes.json();
+                    const mappedDeals = negData.data.map((n: any) => ({
+                        id: n._id,
+                        companyId: n.empresa,
+                        lead_id: n.cliente?._id || n.cliente,
+                        pipeline_id: n.funil,
+                        stage_id: n.etapa?._id || n.etapa,
+                        responsavel_id: n.responsavel?._id || n.responsavel,
+                        status: DealStatus.ABERTA,
+                        criado_em: n.createdAt,
+                        atualizado_em: n.updatedAt
+                    }));
+                    setDeals(mappedDeals);
+                }
+            }
+            loadPipelineData();
+        }
+    }, [activePipelineId]);
 
-  const moveDeal = (dealId: string, stageId: string) => {
-    const stage = stages.find(s => s.id === stageId);
-    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage_id: stageId, atualizado_em: new Date().toISOString() } : d));
-    if (stage) addEvent(dealId, EventType.MUDANCA_ETAPA, `Para: ${stage.nome}`);
-  };
+    const currentCompany = useMemo(() => {
+        if (!currentUser) return null;
+        return companies.find(c => c.id === currentUser.companyId) || null;
+    }, [companies, currentUser]);
 
-  const updatePipeline = (id: string, nome: string) => {
-    setPipelines(prev => prev.map(p => p.id === id ? { ...p, nome } : p));
-  };
+    const login = async (email: string, pass: string) => {
+        try {
+            // Criptografa a senha antes de enviar para o login
+            const encryptedPass = encryptPassword(pass);
 
-  const batchUpdateLeadResponsavel = (leadIds: string[], responsavelId: string) => {
-    setLeads(prev => prev.map(l => leadIds.includes(l.id) ? { ...l, responsavel_id: responsavelId, atualizado_em: new Date().toISOString() } : l));
-    setDeals(prev => prev.map(d => leadIds.includes(d.lead_id) && d.status === DealStatus.ABERTA ? { ...d, responsavel_id: responsavelId } : d));
-  };
+            const res = await fetch(`${API_URL}/usuario/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password: encryptedPass })
+            });
 
-  const updateUserPermissions = (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions, acesso_confirmado } : u));
-  };
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
 
-  const changeUserPassword = (userId: string, newPass: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, senha: newPass } : u));
-  };
+                const userData = { ...data.user, id: data.user._id, companyId: data.user.empresa };
+                setCurrentUser(userData);
+                localStorage.setItem('crm_current_user', JSON.stringify(userData));
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error(e);
+            return false;
+        }
+    };
 
-  return (
-    <CRMContext.Provider value={{ 
-      companies, users, leads, pipelines, stages, deals, events, tasks, products, dealProducts, notifications, currentUser, currentCompany, activePipelineId, setActivePipelineId,
-      login, logout, addCompany, updateCompany, deleteCompany, addLead, updateLead, updateDealStatus, addEvent, deleteLead, deletePipeline, deleteStage, deleteProduct, deleteUser,
-      addPipeline, updatePipeline, addStage, updateStage, reorderStages, addProduct, updateProduct, addUser, updateDealResponsavel: (did:string, rid:string)=>{},
-      addDeal, moveDeal, addDealProduct, deleteDealProduct,
-      importLeads, syncLeadsFromFluent: (c:any)=>({imported:0, updated:0}), restoreLead: (id:string)=>{}, batchUpdateLeadResponsavel, 
-      updateLeadClassificacao, addTask, updateTaskStatus, deleteTask, updateUserPermissions, changeUserPassword,
-      approveNotification, rejectNotification, resetPassword: (e:string, p:string)=>({success:true, message:''})
-    } as any}>
-      {children}
-    </CRMContext.Provider>
-  );
+    const logout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('crm_current_user');
+        setCurrentUser(null);
+        setDeals([]);
+        setLeads([]);
+    };
+
+    const addCompany = async (companyData: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => {
+        const res = await authFetch('/empresa', {
+            method: 'POST',
+            body: JSON.stringify(companyData)
+        });
+
+        if (res?.ok && adminData) {
+            // Se a empresa foi criada, cria o admin
+            // Como o usuário pediu para enviar criptografado no cadastro, usamos encryptPassword
+            const companyRes = await res.json();
+            // Assumindo que o retorno da criação da empresa traz o ID ou dados dela
+            // Vamos precisar do ID da nova empresa. Se o endpoint retorna a empresa criada:
+            // Ajuste aqui conforme o retorno real do seu back (ex: companyRes.data._id)
+
+            // NOTA: Como você não enviou o retorno exato do create empresa, 
+            // vou assumir que você vai implementar o vínculo manualmente ou que o back tratou.
+            // Mas para criar o usuário admin, chamo o addUser:
+
+            await addUser({
+                email: adminData.email,
+                nome: adminData.nome,
+                senha: adminData.senha, // addUser vai criptografar
+                role: 'proprietario',
+                ativo: true,
+                empresa: companyRes.data?._id // Assumindo estrutura do retorno
+            });
+        }
+
+        if (res?.ok) {
+            fetchInitialData();
+        }
+    };
+
+    const updateCompany = async (updated: Company) => {
+        await authFetch('/empresa/edit', {
+            method: 'POST',
+            body: JSON.stringify(updated)
+        });
+        setCompanies(prev => prev.map(c => c.id === updated.id ? updated : c));
+    };
+
+    const deleteCompany = async (id: string, reason: string) => {
+        await authFetch(`/empresa/delete/${id}`, { method: 'DELETE' });
+        setCompanies(prev => prev.filter(c => c.id !== id));
+    };
+
+    const addLead = async (leadData: any) => {
+        if (!activePipelineId || stages.length === 0) return { success: false, error: 'Funil não carregado' };
+
+        const payload = {
+            empresa: currentUser?.companyId,
+            nome: leadData.nome_completo,
+            email: leadData.email,
+            whatsapp: leadData.whatsapp,
+            responsavel: currentUser?.id,
+            origem: 'Manual',
+            tag: leadData.campanha,
+            produto: leadData.produto,
+            funil: leadData.funilId || activePipelineId,
+            etapa: leadData.etapaId || stages[0].id
+        };
+
+        const res = await authFetch('/cliente', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (res?.ok) {
+            fetchInitialData();
+            return { success: true };
+        }
+        return { success: false, error: 'Erro ao criar cliente' };
+    };
+
+    const updateLead = async (updated: Lead) => {
+        await authFetch('/cliente/edit', {
+            method: 'POST',
+            body: JSON.stringify({ id: updated.id, ...updated })
+        });
+        setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+    };
+
+    const addPipeline = async (nome: string) => {
+        if (!currentUser?.companyId) return;
+        const res = await authFetch('/funil', {
+            method: 'POST',
+            body: JSON.stringify({ empresa: currentUser.companyId, nome })
+        });
+        if (res?.ok) fetchInitialData();
+    };
+
+    const updatePipeline = async (id: string, nome: string) => {
+        await authFetch('/funil/update', {
+            method: 'POST',
+            body: JSON.stringify({ id, nome })
+        });
+        setPipelines(prev => prev.map(p => p.id === id ? { ...p, nome } : p));
+    };
+
+    const deletePipeline = async (id: string, justification?: string) => {
+        await authFetch(`/funil/delete/${id}`, { method: 'DELETE' });
+        setPipelines(prev => prev.filter(p => p.id !== id));
+    };
+
+    const addStage = async (pipelineId: string, nome: string) => {
+        const res = await authFetch('/etapa', {
+            method: 'POST',
+            body: JSON.stringify({ funil: pipelineId, nome })
+        });
+        if (res?.ok) {
+            const resEtapas = await authFetch(`/etapa/${pipelineId}`);
+            if (resEtapas?.ok) {
+                const data = await resEtapas.json();
+                setStages(mapEtapaToFront(data.data));
+            }
+        }
+    };
+
+    const updateStage = async (id: string, nome: string) => {
+        await authFetch('/etapa/updatename', {
+            method: 'POST',
+            body: JSON.stringify({ id, nome })
+        });
+        setStages(prev => prev.map(s => s.id === id ? { ...s, nome } : s));
+    };
+
+    const reorderStages = async (newStages: PipelineStage[]) => {
+        setStages(newStages);
+
+        for (let i = 0; i < newStages.length; i++) {
+            await authFetch('/etapa/updateorder', {
+                method: 'POST',
+                body: JSON.stringify({ etapaId: newStages[i].id, newPosition: i })
+            });
+        }
+    };
+
+    const moveDeal = async (dealId: string, stageId: string) => {
+        setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage_id: stageId } : d));
+
+        await authFetch('/negociacao/updateetapa', {
+            method: 'POST',
+            body: JSON.stringify({ id: dealId, novaEtapaId: stageId })
+        });
+    };
+
+    const addUser = async (userData: any) => {
+        // Criptografa senha antes de enviar
+        const payload = {
+            ...userData,
+            empresa: currentUser?.companyId || userData.empresa,
+            senha: encryptPassword(userData.senha)
+        };
+
+        await authFetch('/usuario', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        fetchInitialData();
+    };
+
+    const changeUserPassword = async (userId: string, newPass: string) => {
+        // Também criptografa ao alterar senha
+        const encryptedPass = encryptPassword(newPass);
+
+        await authFetch('/usuario/passwordupdate', {
+            method: 'POST',
+            body: JSON.stringify({ id: userId, newPassword: encryptedPass })
+        });
+    };
+
+    const addEvent = (did: string, t: EventType, d: string) => {
+        setEvents(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), deal_id: String(did), tipo_evento: t, descricao: d, criado_em: new Date().toISOString(), autor_id: currentUser?.id || 'system' }]);
+    };
+
+    const updateDealStatus = (id: string, s: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => {
+        setDeals(prev => prev.map(d => String(d.id) === String(id) ? { ...d, status: s } : d));
+    };
+
+    const deleteLead = async (id: string, reason: string) => {
+        setLeads(prev => prev.map(l => l.id === id ? { ...l, deletado: true } : l));
+    };
+
+    const deleteStage = (id: string, justification?: string) => {
+        setStages(prev => prev.filter(s => s.id !== id));
+    };
+
+    const deleteProduct = (id: string, justification?: string) => {
+        setProducts(prev => prev.filter(p => p.id !== id));
+    };
+
+    const deleteUser = (id: string) => {
+        setUsers(prev => prev.filter(u => u.id !== id));
+    };
+
+    const importLeads = (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => {
+        data.forEach(async (item) => {
+            await addLead({
+                nome_completo: item.nome_completo,
+                email: item.email,
+                whatsapp: item.whatsapp,
+                campanha: item.tags,
+                produto: item.produto
+            });
+        });
+        return { imported: data.length, failed: [] };
+    };
+
+    const addProduct = (p: any) => setProducts(prev => [...prev, { ...p, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId }]);
+    const updateProduct = (updated: Product) => setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+
+    const approveNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
+    const rejectNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
+
+    const addTask = (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => {
+        const newTask: Task = { ...taskData, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId || '', status: TaskStatus.PENDENTE };
+        setTasks(prev => [...prev, newTask]);
+    };
+
+    const updateTaskStatus = (taskId: string, status: TaskStatus) => {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
+    };
+
+    const deleteTask = (taskId: string) => {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+    };
+
+    const updateLeadClassificacao = (id: string, classificacao: number) => {
+        setLeads(prev => prev.map(l => l.id === id ? { ...l, classificacao } : l));
+    };
+
+    const addDealProduct = (dealId: string, productId: string) => {
+        const product = products.find(p => String(p.id) === String(productId));
+        if (!product) return;
+        const newDp: DealProduct = { id: Math.random().toString(36).substr(2, 9), deal_id: String(dealId), product_id: String(productId), valor: product.valor_total, parcelas: product.parcelas };
+        setDealProducts(prev => [...prev, newDp]);
+    };
+
+    const deleteDealProduct = (id: string) => {
+        setDealProducts(prev => prev.filter(item => item.id !== id));
+    };
+
+    const addDeal = (dealData: any) => {
+        return { success: false, error: "Use addLead para criar negociações" };
+    };
+
+    const batchUpdateLeadResponsavel = (leadIds: string[], responsavelId: string) => {
+        setLeads(prev => prev.map(l => leadIds.includes(l.id) ? { ...l, responsavel_id: responsavelId } : l));
+    };
+
+    const updateUserPermissions = (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions, acesso_confirmado } : u));
+    };
+
+    return (
+        <CRMContext.Provider value={{
+            companies, users, leads, pipelines, stages, deals, events, tasks, products, dealProducts, notifications, currentUser, currentCompany, activePipelineId, setActivePipelineId,
+            isLoading, login, logout, addCompany, updateCompany, deleteCompany, addLead, updateLead, updateDealStatus, addEvent, deleteLead, deletePipeline, deleteStage, deleteProduct, deleteUser,
+            addPipeline, updatePipeline, addStage, updateStage, reorderStages, addProduct, updateProduct, addUser, updateDealResponsavel: (did: string, rid: string) => { },
+            addDeal, moveDeal, addDealProduct, deleteDealProduct,
+            importLeads, syncLeadsFromFluent: (c: any) => ({ imported: 0, updated: 0 }), restoreLead: (id: string) => { }, batchUpdateLeadResponsavel,
+            updateLeadClassificacao, addTask, updateTaskStatus, deleteTask, updateUserPermissions, changeUserPassword,
+            approveNotification, rejectNotification, resetPassword: (e: string, p: string) => ({ success: true, message: '' })
+        } as any}>
+            {children}
+        </CRMContext.Provider>
+    );
 };
 
 export const useCRM = () => {
-  const context = useContext(CRMContext);
-  if (!context) throw new Error('useCRM must be used within a CRMProvider');
-  return context;
+    const context = useContext(CRMContext);
+    if (!context) throw new Error('useCRM must be used within a CRMProvider');
+    return context;
 };
