@@ -9,13 +9,11 @@ class UsuarioController {
 
         if (!empresa || !nome || !email || !senha || !role) return res.status(400).send({ message: "Data is missing!" });
 
-        const encrypted = CryptoJS.AES.encrypt(senha + process.env.SALT, process.env.SECRET).toString();
-
         const usuario = {
             empresa: empresa,
             nome: nome,
             email: email,
-            senha: encrypted,
+            senha: senha,
             role: role
         }
 
