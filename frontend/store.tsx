@@ -171,59 +171,41 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!currentUser || !currentUser.companyId) return;
 
         try {
-            setIsLoading(true); // Garante que está em loading
-            console.log('🔄 Iniciando carregamento de dados...', { companyId: currentUser.companyId });
+            setIsLoading(true);
             
             // Carrega dados críticos de forma síncrona
             const [resEmpresa, resFunis] = await Promise.all([
-                authFetch('/empresa').catch(e => { console.error('❌ Erro ao buscar /empresa:', e); return null; }),
-                authFetch(`/funil/${currentUser.companyId}`).catch(e => { console.error('❌ Erro ao buscar /funil:', e); return null; })
+                authFetch('/empresa'),
+                authFetch(`/funil/${currentUser.companyId}`)
             ]);
 
             if (resEmpresa?.ok) {
                 const data = await resEmpresa.json();
-                console.log('✅ Empresas carregadas:', data);
                 setCompanies(mapMongoToFront(data.data));
-            } else if (resEmpresa) {
-                console.warn('⚠️ GET /empresa retornou status:', resEmpresa.status);
             }
 
             if (resFunis?.ok) {
                 const data = await resFunis.json();
-                console.log('✅ Funils carregados:', data);
                 const mappedFunis = mapFunilToFront(data.data);
                 setPipelines(mappedFunis);
 
                 if (mappedFunis.length > 0) {
                     const initialPipeId = mappedFunis[0].id;
                     setActivePipelineId(initialPipeId);
-                    console.log('📌 Pipeline inicial definido:', initialPipeId);
                     
                     // Aguarda carregamento das etapas do primeiro funil
-                    const resEtapas = await authFetch(`/etapa/${initialPipeId}`).catch(e => {
-                        console.error('❌ Erro ao buscar /etapa:', e);
-                        return null;
-                    });
+                    const resEtapas = await authFetch(`/etapa/${initialPipeId}`);
                     if (resEtapas?.ok) {
                         const etapaData = await resEtapas.json();
-                        console.log('✅ Etapas carregadas:', etapaData);
                         setStages(mapEtapaToFront(etapaData.data));
-                    } else if (resEtapas) {
-                        console.warn('⚠️ GET /etapa retornou status:', resEtapas.status);
                     }
                 }
-            } else if (resFunis) {
-                console.warn('⚠️ GET /funil retornou status:', resFunis.status);
             }
 
-            // Carrega clientes de forma SÍNCRONA agora
-            const resClientes = await authFetch('/cliente').catch(e => {
-                console.error('❌ Erro ao buscar /cliente:', e);
-                return null;
-            });
+            // Carrega clientes
+            const resClientes = await authFetch('/cliente');
             if (resClientes?.ok) {
                 const data = await resClientes.json();
-                console.log('✅ Clientes carregados:', data);
                 const mappedClients = data.data?.map((c: any) => ({
                     id: c._id,
                     companyId: c.empresa?._id || c.empresa,
@@ -238,15 +220,11 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     deletado: c.excluido
                 })) || [];
                 setLeads(mappedClients);
-            } else if (resClientes) {
-                console.warn('⚠️ GET /cliente retornou status:', resClientes.status);
             }
-
-            console.log('✅ Carregamento concluído com sucesso!');
         } catch (error) {
-            console.error("❌ Erro ao carregar dados iniciais:", error);
+            console.error("Erro ao carregar dados iniciais:", error);
         } finally {
-            setIsLoading(false); // Apenas quando TUDO estiver pronto
+            setIsLoading(false);
         }
     };
 
