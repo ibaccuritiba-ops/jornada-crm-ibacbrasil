@@ -518,17 +518,89 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const approveNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
     const rejectNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
 
-    const addTask = (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => {
-        const newTask: Task = { ...taskData, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId || '', status: TaskStatus.PENDENTE };
-        setTasks(prev => [...prev, newTask]);
+    const addTask = async (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => {
+        try {
+            const response = await authFetch(
+                `${API_URL}/negociacao/addtarefa`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        negociacaoId: taskData.deal_id,
+                        tarefa: {
+                            titulo: taskData.titulo,
+                            tipo: taskData.tipo,
+                            data: taskData.data_hora,
+                            concluida: false
+                        }
+                    })
+                }
+            );
+
+            const data = await response.json();
+            if (data?.data?.tarefas) {
+                const mappedTasks = data.data.tarefas.map((t: any) => ({
+                    id: t._id,
+                    titulo: t.titulo,
+                    tipo: t.tipo as TaskType,
+                    data_hora: t.data,
+                    status: t.concluida ? TaskStatus.CONCLUIDA : TaskStatus.PENDENTE,
+                    deal_id: taskData.deal_id,
+                    responsavel_id: taskData.responsavel_id,
+                    companyId: currentUser?.companyId || ''
+                }));
+                setTasks(prev => [...prev.filter(t => t.deal_id !== taskData.deal_id), ...mappedTasks]);
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar tarefa:', error);
+        }
     };
 
-    const updateTaskStatus = (taskId: string, status: TaskStatus) => {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
+    const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
+        try {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            const response = await authFetch(
+                `${API_URL}/negociacao/updatetarefa`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        negociacaoId: task.deal_id,
+                        tarefaId: taskId,
+                        updates: {
+                            concluida: status === TaskStatus.CONCLUIDA
+                        }
+                    })
+                }
+            );
+
+            const data = await response.json();
+            if (data?.data?.tarefas) {
+                const mappedTasks = data.data.tarefas.map((t: any) => ({
+                    id: t._id,
+                    titulo: t.titulo,
+                    tipo: t.tipo as TaskType,
+                    data_hora: t.data,
+                    status: t.concluida ? TaskStatus.CONCLUIDA : TaskStatus.PENDENTE,
+                    deal_id: task.deal_id,
+                    responsavel_id: task.responsavel_id,
+                    companyId: currentUser?.companyId || ''
+                }));
+                setTasks(prev => [...prev.filter(t => t.deal_id !== task.deal_id), ...mappedTasks]);
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar tarefa:', error);
+        }
     };
 
     const deleteTask = (taskId: string) => {
-        setTasks(prev => prev.filter(t => t.id !== taskId));
+        // Tasks não são deletadas, apenas marcadas como concluídas
+        const task = tasks.find(t => t.id === taskId);
+        if (task) {
+            updateTaskStatus(taskId, TaskStatus.CONCLUIDA);
+        }
     };
 
     const updateLeadClassificacao = (id: string, classificacao: number) => {

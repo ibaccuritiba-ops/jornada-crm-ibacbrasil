@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useCRM } from '../store';
+import { useCRM } from '../../store';
 
 const Notifications: React.FC = () => {
     const { notifications, approveNotification, rejectNotification, currentUser } = useCRM();
@@ -73,3 +73,4 @@ const Notifications: React.FC = () => {
 };
 
 export default Notifications;
+

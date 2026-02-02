@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from './store';
-import { Product } from './types';
+import { useCRM } from '../../store';
+import { Product } from '../../types';
 
 const Products: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct } = useCRM();
@@ -186,3 +186,4 @@ const Products: React.FC = () => {
 };
 
 export default Products;
+

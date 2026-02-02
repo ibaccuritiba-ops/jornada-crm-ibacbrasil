@@ -19,6 +19,10 @@ const TarefaSchema = new mongoose.Schema({
     data: {
         type: Date,
         required: true
+    },
+    concluida: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -28,6 +32,10 @@ const ProdutoSchema = new mongoose.Schema({
         required: true
     },
     value: {
+        type: Number,
+        required: true
+    },
+    maxParcelas: {
         type: Number,
         required: true
     }

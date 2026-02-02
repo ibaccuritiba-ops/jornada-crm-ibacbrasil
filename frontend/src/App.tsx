@@ -1,19 +1,19 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { CRMProvider, useCRM } from './store';
-import Layout from './components/Layout';
-import Kanban from './components/Kanban';
-import ImportLeads from './components/ImportLeads';
-import Settings from './components/Settings';
-import PipelineSettings from './components/PipelineSettings';
-import Branding from './components/Branding';
-import Products from './components/Products';
-import Reports from './components/Reports';
-import UsersPermissions from './components/UsersPermissions';
-import NotificationsView from './components/Notifications';
-import Companies from './components/Companies';
-import TasksView from './components/Tasks';
-import Logo from './components/Logo';
+import Layout from './components/shared/Layout';
+import Kanban from './components/features/pipeline/Kanban';
+import ImportLeads from './components/features/leads/ImportLeads';
+import Settings from './components/features/settings/Settings';
+import PipelineSettings from './components/features/pipeline/PipelineSettings';
+import Branding from './components/features/admin/Branding';
+import Products from './components/features/Products';
+import Reports from './components/features/Reports';
+import UsersPermissions from './components/features/admin/UsersPermissions';
+import NotificationsView from './components/shared/Notifications';
+import Companies from './components/features/admin/Companies';
+import TasksView from './components/features/Tasks';
+import Logo from './components/shared/Logo';
 import { UserProfile, DealStatus, PersonType, Lead, Company, User, TaskStatus, TaskType, EventType } from './types';
 
 // Utilitário para exportação de CSV

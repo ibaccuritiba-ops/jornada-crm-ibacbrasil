@@ -1,7 +1,6 @@
-
 import React, { useMemo } from 'react';
-import { useCRM } from './store';
-import { UserProfile, TaskStatus } from './types';
+import { useCRM } from '../../store';
+import { UserProfile, TaskStatus } from '../../types';
 import Logo from './Logo';
 
 interface LayoutProps {
@@ -11,33 +10,42 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
-    const { currentUser, currentCompany, logout, tasks, notifications } = useCRM();
+    const { currentUser, currentCompany, logout, tasks, isLoading } = useCRM();
 
-    const userTasksCount = tasks.filter(t =>
+    // Ajuste: O Backend não tem tarefas integradas globalmente ainda, então protegemos com ?.
+    const userTasksCount = tasks?.filter(t =>
         String(t.responsavel_id) === String(currentUser?.id) &&
         t.status === TaskStatus.PENDENTE
-    ).length;
+    ).length || 0;
+
+    // Mapeamento de permissões baseado no array 'acessos' do Backend
+    const checkPermission = (perm: string | undefined) => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'proprietario' || currentUser.role === 'supervisor') return true; // Proprietário/Supervisor vê tudo
+        if (!perm) return true; // Se não tem exigência, libera
+        return currentUser.acessos?.includes(perm);
+    };
 
     const menuItems = [
-        { id: 'dashboard', label: 'Início', icon: '📊', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'relatorios' },
-        { id: 'pipeline_settings', label: 'Configurar Funil', icon: '🛠️', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'pipelines' },
-        { id: 'kanban', label: 'Funil de Vendas', icon: '🎯', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'negociacoes' },
-        { id: 'companies', label: 'Empresas SaaS', icon: '🏢', roles: [UserProfile.PROPRIETARIO] },
-        { id: 'users_permissions', label: 'Usuários e Permissões', icon: '🔐', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN] },
-        { id: 'tasks', label: 'Minhas Tarefas', icon: '📅', roles: [UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], badge: userTasksCount, perm: 'tarefas' },
-        { id: 'leads', label: 'Base de Leads', icon: '👤', roles: [UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'leads' },
-        { id: 'trash', label: 'Lixeira', icon: '🗑️', roles: [UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'leads' },
-        { id: 'products', label: 'Produtos', icon: '📦', roles: [UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'produtos' },
-        { id: 'branding', label: 'Identidade Visual', icon: '🎨', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'branding' },
-        { id: 'import', label: 'Importação', icon: '📥', roles: [UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER], perm: 'importacao' },
-        { id: 'settings', label: 'Configurar Conta', icon: '⚙️', roles: [UserProfile.PROPRIETARIO, UserProfile.SUPER_ADMIN, UserProfile.ADMIN, UserProfile.FINAL_USER] },
+        { id: 'dashboard', label: 'Início', icon: '📊', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'relatorios' },
+        { id: 'pipeline_settings', label: 'Configurar Funil', icon: '🛠️', roles: ['proprietario', 'supervisor'], perm: 'config.funil' }, // Ajustado para config.funil
+        { id: 'kanban', label: 'Funil de Vendas', icon: '🎯', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'negocios' }, // Ajustado para negocios
+        { id: 'companies', label: 'Empresas SaaS', icon: '🏢', roles: ['proprietario'] },
+        { id: 'users_permissions', label: 'Usuários e Permissões', icon: '🔐', roles: ['proprietario', 'supervisor'], perm: 'config.conta' },
+        { id: 'tasks', label: 'Minhas Tarefas', icon: '📅', roles: ['proprietario', 'supervisor', 'vendedor'], badge: userTasksCount, perm: 'agenda' }, // Ajustado para agenda
+        { id: 'leads', label: 'Base de Leads', icon: '👤', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'leads' },
+        { id: 'products', label: 'Produtos', icon: '📦', roles: ['proprietario', 'supervisor'], perm: 'produtos' },
+        { id: 'branding', label: 'Identidade Visual', icon: '🎨', roles: ['proprietario', 'supervisor'], perm: 'branding' },
+        { id: 'import', label: 'Importação', icon: '📥', roles: ['proprietario', 'supervisor'], perm: 'importacao' },
+        { id: 'settings', label: 'Configurar Conta', icon: '⚙️', roles: ['proprietario', 'supervisor', 'vendedor'] },
     ];
 
     const themeVariables = useMemo(() => {
+        // Ajuste: Nomes dos campos vindos do Banco de Dados (EmpresaModel)
         return {
-            '--primary': currentCompany?.cor_primaria || '#0f172a',
-            '--secondary': currentCompany?.cor_secundaria || '#2563eb',
-            '--tertiary': currentCompany?.cor_terciaria || '#0f172a',
+            '--primary': currentCompany?.cor_principal || '#0f172a', // Antes: cor_primaria
+            '--secondary': currentCompany?.cor_destaque || '#2563eb', // Antes: cor_secundaria
+            '--tertiary': '#0f172a', // O banco não tem terciária, usando padrão
         };
     }, [currentCompany]);
 
@@ -47,15 +55,27 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         return menuItems.filter(item => {
             if (!currentUser) return false;
 
-            // Verifica se o role tem acesso
+            // Ajuste: Verifica se a role do usuário está na lista permitida
             const hasRole = item.roles.includes(currentUser.role);
             
-            // Se o item tem uma permissão específica (perm), verifica se está no array acessos
-            const hasPermission = !item.perm || currentUser.role === 'proprietario' || currentUser.role === 'supervisor' || currentUser.acessos?.includes(item.perm);
+            // Ajuste: Verifica permissão no array de acessos
+            const hasPermission = checkPermission(item.perm);
 
             return hasRole && hasPermission;
         });
     }, [currentUser, menuItems]);
+
+    // Proteção contra undefined no replace
+    const userRoleDisplay = (currentUser?.role || '').replace('_', ' ');
+    const userNameDisplay = currentUser?.nome || 'Usuário';
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-slate-100 overflow-hidden theme-container" style={themeVariables as any}>
@@ -108,11 +128,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                 <div className="p-4 border-t border-white/10 bg-black/10">
                     <div className="flex items-center gap-3 mb-4 px-2">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white font-black border border-white/20 uppercase">
-                            {currentUser?.nome[0]}
+                            {userNameDisplay[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black truncate text-white leading-tight">{currentUser?.nome}</p>
-                            <p className="text-[9px] text-white/50 truncate font-black uppercase tracking-widest mt-0.5">{currentUser?.role.replace('_', ' ')}</p>
+                            <p className="text-sm font-black truncate text-white leading-tight">{userNameDisplay}</p>
+                            <p className="text-[9px] text-white/50 truncate font-black uppercase tracking-widest mt-0.5">{userRoleDisplay}</p>
                         </div>
                     </div>
                     <button onClick={logout} className="w-full text-center px-4 py-2 text-[10px] font-black uppercase text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">Encerrar Sessão</button>

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useCRM } from './store';
-import { UserProfile } from './types';
+import { useCRM } from '../../../store';
+import { UserProfile } from '../../../types';
 
 const ImportLeads: React.FC = () => {
     const { importLeads, stages, syncLeadsFromFluent, currentUser, users } = useCRM();
@@ -94,7 +94,7 @@ const ImportLeads: React.FC = () => {
         }, 1500);
     };
 
-    const isSuperAdmin = currentUser?.perfil === UserProfile.SUPER_ADMIN || currentUser?.perfil === UserProfile.PROPRIETARIO;
+    const isSuperAdmin = currentUser?.role === 'supervisor' || currentUser?.role === 'proprietario';
 
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-12 px-4 animate-in fade-in">
@@ -246,3 +246,4 @@ const ImportLeads: React.FC = () => {
 };
 
 export default ImportLeads;
+

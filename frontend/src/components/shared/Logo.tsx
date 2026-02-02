@@ -40,3 +40,4 @@ const Logo: React.FC<LogoProps> = ({ variant = 'dark', size = 'md' }) => {
 };
 
 export default Logo;
+

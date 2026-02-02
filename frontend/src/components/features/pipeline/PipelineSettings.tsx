@@ -1,7 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { useCRM } from './store';
-import { UserProfile } from './types';
+import { useCRM } from '../../../store';
 
 const PipelineSettings: React.FC = () => {
     const {
@@ -24,8 +22,12 @@ const PipelineSettings: React.FC = () => {
         return currentUser.acessos?.includes('config.funil');
     }, [currentUser]);
 
+    // Filtro de Funis
     const companyPipelines = useMemo(() =>
-        pipelines.filter(p => p.companyId === currentCompany?.id),
+        pipelines.filter(p => {
+            const belongsToCompany = p.companyId === currentCompany?.id;
+            return belongsToCompany;
+        }),
         [pipelines, currentCompany]
     );
 
@@ -34,6 +36,7 @@ const PipelineSettings: React.FC = () => {
         [pipelines, activePipelineId]
     );
 
+    // CORREÇÃO: Filtra etapas pelo funil ativo
     const filteredStages = useMemo(() =>
         stages
             .filter(s => String(s.pipeline_id || s.funil) === String(activePipelineId))
@@ -129,7 +132,7 @@ const PipelineSettings: React.FC = () => {
                                 ) : (
                                     <h4 className={`text-lg font-black ${activePipelineId === p.id ? 'text-blue-700' : 'text-slate-800'}`}>{p.nome}</h4>
                                 )}
-                                <div className="mt-4 flex items-center gap-1"><div className="flex gap-0.5">{stages.filter(s => !s.deletado && s.pipeline_id === p.id).slice(0, 5).map((_, i) => (<div key={i} className={`w-3 h-1 rounded ${activePipelineId === p.id ? 'bg-blue-300' : 'bg-slate-200'}`}></div>))}</div><span className="text-[10px] font-bold text-slate-400 ml-1.5">{stages.filter(s => !s.deletado && s.pipeline_id === p.id).length} Etapas Definidas</span></div>
+                                <div className="mt-4 flex items-center gap-1"><div className="flex gap-0.5">{stages.filter(s => String(s.pipeline_id || s.funil) === String(p.id)).slice(0, 5).map((_, i) => (<div key={i} className={`w-3 h-1 rounded ${activePipelineId === p.id ? 'bg-blue-300' : 'bg-slate-200'}`}></div>))}</div><span className="text-[10px] font-bold text-slate-400 ml-1.5">{stages.filter(s => String(s.pipeline_id || s.funil) === String(p.id)).length} Etapas Definidas</span></div>
                             </div>
                         );
                     })}
@@ -169,3 +172,4 @@ const PipelineSettings: React.FC = () => {
 };
 
 export default PipelineSettings;
+

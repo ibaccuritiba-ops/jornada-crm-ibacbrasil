@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCRM } from './store';
+import { useCRM } from '../../../store';
 
 const Settings: React.FC = () => {
     const {
@@ -22,21 +22,19 @@ const Settings: React.FC = () => {
     };
 
     const handleSelectCompany = (id: string) => {
-        // CORREÇÃO: Verifica 'role' em vez de 'perfil'
+        // CORREÇÃO: Usa 'role' (string) em vez de UserProfile (enum)
         if (currentUser?.role !== 'proprietario') return;
         localStorage.setItem('crm_selected_company_id', id);
         window.location.reload();
     };
 
-    // CORREÇÃO: Prepara o texto do cargo de forma segura antes de renderizar
-    // Evita o erro de .replace em undefined
-    const userRoleDisplay = (currentUser?.role || '').toUpperCase();
+    // CORREÇÃO: Tratamento seguro para exibir o cargo (evita o erro do .replace)
+    const userRoleDisplay = (currentUser?.role || 'Usuário').toUpperCase();
 
     return (
         <div className="max-w-4xl mx-auto pb-20 space-y-12 px-4 animate-in fade-in">
 
             {/* CONTEXTO (Apenas Proprietário) */}
-            {/* CORREÇÃO: Verifica se é 'proprietario' (string do backend) */}
             {currentUser?.role === 'proprietario' && (
                 <section className="bg-slate-900 p-8 rounded-[40px] text-white shadow-xl relative overflow-hidden">
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>

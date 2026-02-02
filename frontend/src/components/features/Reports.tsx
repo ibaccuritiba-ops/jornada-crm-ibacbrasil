@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { useCRM } from './store';
-import { UserProfile, DealStatus } from './types';
-import { exportToCSV } from '../App';
+import { useCRM } from '../../store';
+import { UserProfile, DealStatus } from '../../types';
+import { exportToCSV } from '../../App';
 
 const Reports: React.FC = () => {
     const { leads, deals, dealProducts, products, currentUser } = useCRM();
@@ -227,3 +227,4 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
+

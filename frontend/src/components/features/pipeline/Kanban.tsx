@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useCRM } from '../store';
-import { Deal, DealStatus, EventType, TaskType, TaskStatus } from '../types';
+import { useCRM } from '../../../store';
+import { Deal, DealStatus, EventType, TaskType, TaskStatus } from '../../../types';
 
 // Função auxiliar para extrair ID de forma segura
 const getSafeId = (data: any): string => {
@@ -44,12 +44,12 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
     const hasPermission = currentUser?.role === 'proprietario' || currentUser?.role === 'supervisor' || currentUser?.acessos?.includes('negocios');
 
     const deal = deals.find(d => String(d.id) === String(dealId));
-    
+
     if (!deal) return null;
 
     const clientId = getSafeId((deal as any).cliente || deal.lead_id);
     const lead = leads.find(l => String(l.id) === String(clientId));
-    
+
     // Proteção contra lead nulo
     const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
     const leadName = lead?.nome_completo || (lead as any)?.nome || 'Lead Desconhecido';
@@ -195,18 +195,118 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                         {activeTab === 'tasks' && (
                             <div className="space-y-4">
                                 {hasPermission && !showTaskForm && <button onClick={() => setShowTaskForm(true)} className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase w-full">+ Nova Tarefa</button>}
-                                {showTaskForm && <form onSubmit={handleAddTask} className="space-y-2 bg-slate-50 p-4 rounded-xl"><input required className="w-full p-2 rounded border font-bold text-xs" placeholder="Título" value={newTask.titulo} onChange={e => setNewTask({...newTask, titulo: e.target.value})} /><input required type="datetime-local" className="w-full p-2 rounded border font-bold text-xs" value={newTask.data_hora} onChange={e => setNewTask({...newTask, data_hora: e.target.value})} /><div className="flex gap-2"><button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded font-black text-xs">Salvar</button><button type="button" onClick={() => setShowTaskForm(false)} className="px-4 text-slate-400 font-black text-xs">Cancelar</button></div></form>}
+                                {showTaskForm && <form onSubmit={handleAddTask} className="space-y-2 bg-slate-50 p-4 rounded-xl">
+                                    <input required className="w-full p-2 rounded border font-bold text-xs" placeholder="Título" value={newTask.titulo} onChange={e => setNewTask({ ...newTask, titulo: e.target.value })} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <select
+                                            className="w-full p-3 bg-white border border-blue-200 rounded-xl font-bold text-xs"
+                                            value={newTask.tipo}
+                                            onChange={e => setNewTask({ ...newTask, tipo: e.target.value as TaskType })}
+                                        >
+                                            <option value={TaskType.LIGACAO}>📞 Ligar</option>
+                                            <option value={TaskType.WHATSAPP}>💬 WhatsApp</option>
+                                            <option value={TaskType.EMAIL}>📧 E-mail</option>
+                                        </select>
+                                        <input
+                                            required
+                                            type="datetime-local"
+                                            className="w-full p-2 rounded border font-bold text-xs"
+                                            value={newTask.data_hora}
+                                            onChange={e => setNewTask({ ...newTask, data_hora: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="submit"
+                                            className="flex-1 bg-blue-600 text-white py-2 rounded font-black text-xs"
+                                        >
+                                            Salvar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowTaskForm(false)}
+                                            className="px-4 text-slate-400 font-black text-xs"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                    </form>
+                                    }
                                 {dealTasks.map(t => (
-                                    <div key={t.id} className="flex justify-between items-center p-3 border rounded-xl"><div className={t.status === TaskStatus.CONCLUIDA ? 'opacity-50 line-through' : ''}><p className="font-bold text-sm">{t.titulo}</p><p className="text-[10px] text-slate-400">{new Date(t.data_hora).toLocaleString()}</p></div>{t.status === TaskStatus.PENDENTE && hasPermission && <button onClick={() => updateTaskStatus(t.id, TaskStatus.CONCLUIDA)} className="text-emerald-600 font-black">✓</button>}</div>
+                                    <div
+                                        key={t.id}
+                                        className="flex justify-between items-center p-3 border rounded-xl"
+                                    >
+                                        <div className={t.status === TaskStatus.CONCLUIDA ? 'opacity-50 line-through' : ''}>
+                                            <p className="font-bold text-sm">{t.titulo}</p>
+                                            <p className="text-[10px] text-slate-400">
+                                                {new Date(t.data_hora).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {t.status === TaskStatus.PENDENTE && hasPermission && (
+                                            <button
+                                                onClick={() => updateTaskStatus(t.id, TaskStatus.CONCLUIDA)}
+                                                className="text-emerald-600 font-black"
+                                            >
+                                                ✓
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         )}
                         {activeTab === 'products' && (
                             <div className="space-y-4">
-                                {deal.status === DealStatus.ABERTA && hasPermission && <div className="flex gap-2"><select className="flex-1 p-3 border rounded-xl font-bold text-xs" value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}><option value="">Selecionar Produto...</option>{products.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select><button onClick={() => {if(selectedProductId){addDealProduct(String(dealId), selectedProductId); setSelectedProductId('')}}} className="bg-blue-600 text-white px-4 rounded-xl font-black text-[10px]">ADD</button></div>}
+                                {deal.status === DealStatus.ABERTA && hasPermission && (
+                                    <div className="flex gap-2">
+                                        <select
+                                            className="flex-1 p-3 border rounded-xl font-bold text-xs"
+                                            value={selectedProductId}
+                                            onChange={e => setSelectedProductId(e.target.value)}
+                                        >
+                                            <option value="">Selecionar Produto...</option>
+                                            {products.map(p => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.nome}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={() => {
+                                                if (selectedProductId) {
+                                                    addDealProduct(String(dealId), selectedProductId);
+                                                    setSelectedProductId('');
+                                                }
+                                            }}
+                                            className="bg-blue-600 text-white px-4 rounded-xl font-black text-[10px]"
+                                        >
+                                            ADD
+                                        </button>
+                                    </div>
+                                )}
                                 {currentDealProducts.map(dp => {
                                     const p = products.find(prod => String(prod.id) === String(dp.product_id));
-                                    return <div key={dp.id} className="flex justify-between p-4 border rounded-xl items-center"><span className="font-bold text-sm">{p?.nome}</span><div className="flex gap-4 items-center"><span className="font-black">R$ {Number(dp.valor).toLocaleString('pt-BR')}</span>{deal.status === DealStatus.ABERTA && hasPermission && <button onClick={() => deleteDealProduct(dp.id)} className="text-red-400 font-black">✕</button>}</div></div>
+                                    return (
+                                        <div
+                                            key={dp.id}
+                                            className="flex justify-between p-4 border rounded-xl items-center"
+                                        >
+                                            <span className="font-bold text-sm">{p?.nome}</span>
+                                            <div className="flex gap-4 items-center">
+                                                <span className="font-black">
+                                                    R$ {Number(dp.valor).toLocaleString('pt-BR')}
+                                                </span>
+                                                {deal.status === DealStatus.ABERTA && hasPermission && (
+                                                    <button
+                                                        onClick={() => deleteDealProduct(dp.id)}
+                                                        className="text-red-400 font-black"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
                                 })}
                             </div>
                         )}
@@ -228,8 +328,8 @@ const Kanban: React.FC = () => {
 
     const availablePipelines = useMemo(() => {
         return pipelines.filter(p => {
-             const belongsToCompany = (getSafeId(p.companyId) || getSafeId(p.empresa)) === getSafeId(currentCompany?.id);
-             return belongsToCompany;
+            const belongsToCompany = (getSafeId(p.companyId) || getSafeId(p.empresa)) === getSafeId(currentCompany?.id);
+            return belongsToCompany;
         });
     }, [pipelines, currentCompany]);
 
@@ -260,20 +360,53 @@ const Kanban: React.FC = () => {
         return dealProducts.filter(dp => String(dp.deal_id) === String(dealId)).reduce((a, b) => a + Number(b.valor), 0);
     };
 
-    const handleRefresh = () => { setIsRefreshing(true); setTimeout(() => setIsRefreshing(false), 1000); };
-    const handleDragStart = (e: React.DragEvent, dealId: string) => { if (!canInteract) { e.preventDefault(); return; } e.dataTransfer.setData('dealId', dealId); };
-    const handleDrop = (e: React.DragEvent, stageId: string) => { e.preventDefault(); if (!canInteract) return; const dealId = e.dataTransfer.getData('dealId'); if (dealId && stageId) moveDeal(dealId, stageId); };
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
+
+    const handleDragStart = (e: React.DragEvent, dealId: string) => {
+        if (!canInteract) {
+            e.preventDefault();
+            return;
+        }
+        e.dataTransfer.setData('dealId', dealId);
+    };
+
+    const handleDrop = (e: React.DragEvent, stageId: string) => {
+        e.preventDefault();
+        if (!canInteract) return;
+        const dealId = e.dataTransfer.getData('dealId');
+        if (dealId && stageId) moveDeal(dealId, stageId);
+    };
 
     return (
         <div className="h-full flex flex-col gap-6 animate-in fade-in">
             <div className="flex flex-wrap items-center justify-between gap-6 bg-white p-6 rounded-[30px] border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
-                        <button onClick={handleRefresh} className={`p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all cursor-pointer ${isRefreshing ? 'animate-spin' : ''}`}>🔄</button>
-                        <select className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-2.5 font-black text-blue-700 text-xs uppercase cursor-pointer outline-none" value={activePipelineId || ''} onChange={e => setActivePipelineId(e.target.value)}>
-                            {availablePipelines.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                        <button
+                            onClick={handleRefresh}
+                            className={`p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all cursor-pointer ${isRefreshing ? 'animate-spin' : ''}`}
+                        >
+                            🔄
+                        </button>
+                        <select
+                            className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-2.5 font-black text-blue-700 text-xs uppercase cursor-pointer outline-none"
+                            value={activePipelineId || ''}
+                            onChange={e => setActivePipelineId(e.target.value)}
+                        >
+                            {availablePipelines.map(p => (
+                                <option key={p.id} value={p.id}>
+                                    {p.nome}
+                                </option>
+                            ))}
                         </select>
-                        <select className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 font-black text-slate-500 text-xs uppercase cursor-pointer outline-none" value={filterRating} onChange={e => setFilterRating(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
+                        <select
+                            className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 font-black text-slate-500 text-xs uppercase cursor-pointer outline-none"
+                            value={filterRating}
+                            onChange={e => setFilterRating(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                        >
                             <option value="all">Todas as Estrelas</option>
                             <option value="5">⭐⭐⭐⭐⭐ (5)</option>
                             <option value="4">⭐⭐⭐⭐ (4)</option>
@@ -284,59 +417,108 @@ const Kanban: React.FC = () => {
                     </div>
                     <div className="flex bg-slate-100 p-1 rounded-2xl">
                         {[DealStatus.ABERTA, DealStatus.GANHA, DealStatus.PERDIDA].map(s => (
-                            <button key={s} onClick={() => setActiveStatusTab(s)} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer ${activeStatusTab === s ? (s === DealStatus.GANHA ? 'bg-emerald-600 text-white shadow-lg' : s === DealStatus.PERDIDA ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}>
+                            <button
+                                key={s}
+                                onClick={() => setActiveStatusTab(s)}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer ${activeStatusTab === s ? (s === DealStatus.GANHA ? 'bg-emerald-600 text-white shadow-lg' : s === DealStatus.PERDIDA ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}
+                            >
                                 {s === DealStatus.ABERTA ? '🎯 Negociações' : s === DealStatus.GANHA ? '💰 Vendidos' : '🚫 Perdidos'}
                             </button>
                         ))}
                     </div>
                 </div>
                 <div className="font-black text-sm px-4 py-2 rounded-xl border bg-slate-50 border-slate-100 text-slate-800">
-                    TOTAL R$ {activeDeals.reduce((acc, d) => acc + getDealValue(d.id), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    TOTAL R${' '}
+                    {activeDeals
+                        .reduce((acc, d) => acc + getDealValue(d.id), 0)
+                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
             </div>
 
             <div className={`flex-1 flex gap-6 overflow-x-auto pb-6 custom-scrollbar transition-opacity ${isRefreshing ? 'opacity-50' : 'opacity-100'}`}>
                 {sortedStages.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center p-20 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200"><p className="text-slate-400 font-bold uppercase tracking-widest text-center">Nenhum funil/etapa carregado.</p></div>
-                ) : sortedStages.map(stage => {
-                    const stageDeals = activeDeals.filter(d => {
-                        const dealEtapaId = getSafeId((d as any).etapa || d.stage_id);
-                        return String(dealEtapaId) === String(stage.id);
-                    });
-                    return (
-                        <div key={stage.id} onDragOver={(e) => canInteract && e.preventDefault()} onDrop={(e) => handleDrop(e, stage.id)} className="kanban-column flex flex-col h-full bg-slate-100/40 rounded-[30px] border border-slate-200/60 shadow-inner min-w-[300px]">
-                            <div className="p-5 flex justify-between items-center bg-white/60 rounded-t-[30px] border-b border-black/5">
-                                <h3 className="font-black text-slate-700 text-[10px] uppercase tracking-widest truncate">{stage.nome}</h3>
-                                <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-[10px] font-black shadow-sm">{stageDeals.length}</span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                {stageDeals.map(deal => {
-                                    const clientId = getSafeId((deal as any).cliente || deal.lead_id);
-                                    const lead = leads.find(l => String(l.id) === String(clientId));
-                                    const value = getDealValue(deal.id);
-                                    const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
-                                    const leadName = lead?.nome_completo || (lead as any)?.nome || 'Sem Nome';
-                                    const leadTag = (lead as any)?.tag || lead?.campanha || 'Geral';
+                    <div className="flex-1 flex items-center justify-center p-20 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-center">
+                            Nenhum funil/etapa carregado.
+                        </p>
+                    </div>
+                ) : (
+                    sortedStages.map(stage => {
+                        const stageDeals = activeDeals.filter(d => {
+                            const dealEtapaId = getSafeId((d as any).etapa || d.stage_id);
+                            return String(dealEtapaId) === String(stage.id);
+                        });
 
-                                    return (
-                                        <div key={deal.id} draggable={canInteract} onDragStart={(e) => handleDragStart(e, deal.id)} onClick={() => setSelectedDealId(deal.id)} className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm cursor-pointer group active:scale-95">
-                                            <div className="flex justify-between items-start mb-3"><Stars rating={leadRating} /></div>
-                                            <p className="font-black text-slate-800 text-sm leading-tight mb-1">{leadName}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold mb-4 uppercase tracking-tighter">{leadTag}</p>
-                                            <div className="p-3 rounded-xl border bg-slate-50 border-slate-100">
-                                                <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Ticket</p>
-                                                <p className="font-black text-sm text-slate-900">R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        return (
+                            <div
+                                key={stage.id}
+                                onDragOver={(e) => canInteract && e.preventDefault()}
+                                onDrop={(e) => handleDrop(e, stage.id)}
+                                className="kanban-column flex flex-col h-full bg-slate-100/40 rounded-[30px] border border-slate-200/60 shadow-inner min-w-[300px]"
+                            >
+                                <div className="p-5 flex justify-between items-center bg-white/60 rounded-t-[30px] border-b border-black/5">
+                                    <h3 className="font-black text-slate-700 text-[10px] uppercase tracking-widest truncate">
+                                        {stage.nome}
+                                    </h3>
+                                    <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-[10px] font-black shadow-sm">
+                                        {stageDeals.length}
+                                    </span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                    {stageDeals.map(deal => {
+                                        const clientId = getSafeId((deal as any).cliente || deal.lead_id);
+                                        const lead = leads.find(l => String(l.id) === String(clientId));
+                                        const value = getDealValue(deal.id);
+                                        const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
+                                        const leadName = lead?.nome_completo || (lead as any)?.nome || 'Sem Nome';
+                                        const leadTag = (lead as any)?.tag || lead?.campanha || 'Geral';
+
+                                        return (
+                                            <div
+                                                key={deal.id}
+                                                draggable={canInteract}
+                                                onDragStart={(e) => handleDragStart(e, deal.id)}
+                                                onClick={() => setSelectedDealId(deal.id)}
+                                                className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm cursor-pointer group active:scale-95"
+                                            >
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <Stars rating={leadRating} />
+                                                </div>
+                                                <p className="font-black text-slate-800 text-sm leading-tight mb-1">
+                                                    {leadName}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 font-bold mb-4 uppercase tracking-tighter">
+                                                    {leadTag}
+                                                </p>
+                                                <div className="p-3 rounded-xl border bg-slate-50 border-slate-100">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">
+                                                        Ticket
+                                                    </p>
+                                                    <p className="font-black text-sm text-slate-900">
+                                                        R${' '}
+                                                        {value.toLocaleString('pt-BR', {
+                                                            minimumFractionDigits: 2
+                                                        })}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
-            {selectedDealId && <DealDetailModal dealId={selectedDealId} onClose={() => setSelectedDealId(null)} onStatusChanged={s => setActiveStatusTab(s)} />}
+            {selectedDealId && (
+                <DealDetailModal
+                    dealId={selectedDealId}
+                    onClose={() => setSelectedDealId(null)}
+                    onStatusChanged={s => setActiveStatusTab(s)}
+                />
+            )}
         </div>
     );
 };
 export default Kanban;
+
