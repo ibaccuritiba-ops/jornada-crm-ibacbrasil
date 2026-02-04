@@ -33,11 +33,25 @@ export const useCompanies = (): UseCompaniesReturn => {
     const updateCompany = useCallback(async (company: Company) => {
         if (!authFetch) return;
         
-        await authFetch('/empresa/update', {
+        const res = await authFetch('/empresa/edit', {
             method: 'POST',
             body: JSON.stringify(company)
         });
-        setCompanies(prev => prev.map(c => c.id === company.id ? company : c));
+        
+        if (res?.ok) {
+            const data = await res.json();
+            if (data?.data) {
+                const updatedCompany: Company = {
+                    id: data.data._id,
+                    nome: data.data.nome,
+                    logo_url: data.data.logo_url,
+                    cor_principal: data.data.cor_principal,
+                    cor_destaque: data.data.cor_destaque,
+                    deletado: data.data.excluido
+                };
+                setCompanies(prev => prev.map(c => c.id === updatedCompany.id ? updatedCompany : c));
+            }
+        }
     }, [authFetch]);
 
     const deleteCompany = useCallback(async (id: string, reason: string) => {
