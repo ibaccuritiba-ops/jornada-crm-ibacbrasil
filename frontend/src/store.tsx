@@ -119,7 +119,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         nome: p.nome,
                         valor_total: p.valor_total,
                         parcelas: p.parcelas,
-                        companyId: p.empresa,
+                        companyId: typeof p.empresa === 'object' ? p.empresa?._id : p.empresa,
                         deletado: p.excluido,
                         criado_em: p.createdAt,
                         atualizado_em: p.updatedAt
@@ -155,7 +155,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         nome: p.nome,
                         valor_total: p.valor_total,
                         parcelas: p.parcelas,
-                        companyId: p.empresa,
+                        companyId: typeof p.empresa === 'object' ? p.empresa?._id : p.empresa,
                         deletado: p.excluido,
                         criado_em: p.createdAt,
                         atualizado_em: p.updatedAt

@@ -38,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         { id: 'leads', label: 'Base de Leads', icon: <User className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'leads' },
         { id: 'trash', label: 'Lixeira', icon: <Trash2 className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'leads' },
         { id: 'products', label: 'Produtos', icon: <Box className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'produtos' },
-        { id: 'branding', label: 'Identidade Visual', icon: <Palette className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'branding' },
+        { id: 'branding', label: 'Identidade Visual', icon: <Palette className="w-5 h-5" />, roles: ['superadmin'], perm: 'branding' },
         { id: 'import', label: 'Importação', icon: <Upload className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'importacao' },
         { id: 'settings', label: 'Configurar Conta', icon: <Settings className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'] },
     ];
