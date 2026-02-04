@@ -26,9 +26,10 @@ class ClienteController {
             try {
                 // Se responsavel for 'distribute', fazer rodízio entre usuários da empresa
                 if (responsavel === 'distribute') {
-                    // Tenta encontrar usuários ativos (sem o campo ativo, pois ele não existe)
+                    // Encontra usuários ativos (ativo: true)
                     const usuariosAtivos = await UsuarioModel.find({
                         empresa: empresa,
+                        ativo: true,
                         role: { $in: ['vendedor', 'superadmin'] }
                     });
 

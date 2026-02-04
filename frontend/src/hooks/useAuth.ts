@@ -7,7 +7,7 @@ import { encryptPassword } from '../utils/helpers';
 interface UseAuthReturn {
     currentUser: User | null;
     setCurrentUser: (user: User | null) => void;
-    login: (email: string, pass: string) => Promise<boolean>;
+    login: (email: string, pass: string) => Promise<{success: boolean; error?: string}>;
     logout: () => void;
     resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
 }
@@ -18,7 +18,7 @@ export const useAuth = (): UseAuthReturn => {
         return saved ? JSON.parse(saved) : null;
     });
 
-    const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
+    const login = useCallback(async (email: string, pass: string): Promise<{success: boolean; error?: string}> => {
         try {
             const encryptedPass = encryptPassword(pass);
 
@@ -37,12 +37,15 @@ export const useAuth = (): UseAuthReturn => {
                 setCurrentUser(userData);
                 localStorage.setItem('crm_current_user', JSON.stringify(userData));
                 
-                return true;
+                return { success: true };
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                const errorMessage = errorData.message || 'Email ou senha inválidos';
+                return { success: false, error: errorMessage };
             }
-            return false;
         } catch (e) {
             console.error(e);
-            return false;
+            return { success: false, error: 'Erro ao fazer login' };
         }
     }, []);
 

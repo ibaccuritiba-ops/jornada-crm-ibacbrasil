@@ -20,7 +20,9 @@ const PipelineSettings: React.FC = () => {
 
     const canEdit = useMemo(() => {
         if (!currentUser) return false;
-        if (currentUser.role === 'proprietario' || currentUser.role === 'superadmin') return true;
+        // Apenas proprietário pode editar sem permissões específicas
+        if (currentUser.role === 'proprietario') return true;
+        // Superadmin e vendedores precisam da permissão específica
         return currentUser.acessos?.includes('config.funil');
     }, [currentUser]);
 

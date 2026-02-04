@@ -41,6 +41,52 @@ class UsuarioController {
         }
     }
 
+    static async updatePermissions(req, res) {
+        const { usuarioId, acessos } = req.body;
+
+        if (!usuarioId || !Array.isArray(acessos)) {
+            return res.status(400).send({ message: "Dados inválidos." });
+        }
+
+        try {
+            const usuarioAtualizado = await UsuarioModel.findByIdAndUpdate(
+                usuarioId,
+                { acessos },
+                { new: true }
+            ).populate('empresa');
+
+            return res.status(200).send({
+                message: "Permissões atualizadas com sucesso!",
+                data: usuarioAtualizado
+            });
+        } catch (error) {
+            return res.status(500).send({ message: "Erro ao atualizar permissões", error: error.message });
+        }
+    }
+
+    static async updateAccess(req, res) {
+        const { usuarioId, ativo } = req.body;
+
+        if (!usuarioId || typeof ativo !== 'boolean') {
+            return res.status(400).send({ message: "Dados inválidos." });
+        }
+
+        try {
+            const usuarioAtualizado = await UsuarioModel.findByIdAndUpdate(
+                usuarioId,
+                { ativo },
+                { new: true }
+            ).populate('empresa');
+
+            return res.status(200).send({
+                message: "Status de acesso atualizado com sucesso!",
+                data: usuarioAtualizado
+            });
+        } catch (error) {
+            return res.status(500).send({ message: "Erro ao atualizar acesso", error: error.message });
+        }
+    }
+
     static async changePassword(req, res) {
         const { id, newPassword } = req.body;
         
@@ -67,6 +113,11 @@ class UsuarioController {
 
             if (!user) {
                 return res.status(404).send({ message: "Email or password invalid." });
+            }
+
+            // Verifica se o usuário está ativo
+            if (!user.ativo) {
+                return res.status(403).send({ message: "Sua conta está inativa. Entre em contato com o administrador." });
             }
 
             const bytesInput = CryptoJS.AES.decrypt(password, process.env.SECRET);

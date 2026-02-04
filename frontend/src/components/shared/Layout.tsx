@@ -23,13 +23,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     // Mapeamento de permissões baseado no array 'acessos' do Backend
     const checkPermission = (perm: string | undefined) => {
         if (!currentUser) return false;
-        if (currentUser.role === 'proprietario' || currentUser.role === 'superadmin') return true; // Proprietário/Superadmin vê tudo
+        // Apenas proprietário tem acesso a tudo
+        if (currentUser.role === 'proprietario') return true;
+        // Superadmin e vendedores precisam das permissões específicas
         if (!perm) return true; // Se não tem exigência, libera
-        return currentUser.acessos?.includes(perm);
+        const hasAccess = currentUser.acessos?.includes(perm) || false;
+        return hasAccess;
     };
 
     const menuItems = [
-        { id: 'dashboard', label: 'Início', icon: <BarChart3 className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'relatorios' },
+        { id: 'dashboard', label: 'Início', icon: <BarChart3 className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'] },
         { id: 'pipeline_settings', label: 'Configurar Funil', icon: <Wrench className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'config.funil' },
         { id: 'kanban', label: 'Funil de Vendas', icon: <Target className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'negocios' },
         { id: 'companies', label: 'Empresas SaaS', icon: <Building2 className="w-5 h-5" />, roles: ['proprietario'] },
@@ -40,7 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         { id: 'products', label: 'Produtos', icon: <Box className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'produtos' },
         { id: 'branding', label: 'Identidade Visual', icon: <Palette className="w-5 h-5" />, roles: ['superadmin'], perm: 'branding' },
         { id: 'import', label: 'Importação', icon: <Upload className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'importacao' },
-        { id: 'settings', label: 'Configurar Conta', icon: <Settings className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'] },
+        { id: 'settings', label: 'Configurar Conta', icon: <Settings className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'config.conta' },
     ];
 
     const themeVariables = useMemo(() => {

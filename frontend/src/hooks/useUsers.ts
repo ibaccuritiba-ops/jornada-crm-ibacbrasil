@@ -12,6 +12,7 @@ interface UseUsersReturn {
     deleteUser: (userId: string) => void;
     changeUserPassword: (userId: string, newPass: string) => Promise<void>;
     updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
+    updateUserAccess: (userId: string, ativo: boolean) => Promise<void>;
 }
 
 export const useUsers = (): UseUsersReturn => {
@@ -72,9 +73,55 @@ export const useUsers = (): UseUsersReturn => {
         });
     }, [authFetch]);
 
-    const updateUserPermissions = useCallback((userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => {
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions, acesso_confirmado } : u));
-    }, []);
+    const updateUserPermissions = useCallback(async (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => {
+        if (!authFetch) return;
+
+        // Converte permissions object para acessos array
+        const acessos = [];
+        if (permissions.leads) acessos.push('leads');
+        if (permissions.negociacoes) acessos.push('negocios');
+        if (permissions.importacao) acessos.push('importacao');
+        if (permissions.relatorios) acessos.push('relatorios');
+        if (permissions.produtos) acessos.push('produtos');
+        if (permissions.configuracoes) acessos.push('config.conta');
+        if (permissions.branding) acessos.push('branding');
+        if (permissions.pipelines) acessos.push('config.funil');
+        if (permissions.tarefas) acessos.push('agenda');
+
+        // Envia para o backend
+        const res = await authFetch('/usuario/updatepermissions', {
+            method: 'POST',
+            body: JSON.stringify({ usuarioId: userId, acessos })
+        });
+
+        if (res?.ok) {
+            // Atualiza estado local
+            setUsers(prev => prev.map(u => u.id === userId ? { 
+                ...u, 
+                permissions, 
+                acesso_confirmado,
+                acessos 
+            } : u));
+        }
+    }, [authFetch]);
+
+    const updateUserAccess = useCallback(async (userId: string, ativo: boolean) => {
+        if (!authFetch) return;
+
+        const res = await authFetch('/usuario/updateaccess', {
+            method: 'POST',
+            body: JSON.stringify({ usuarioId: userId, ativo })
+        });
+
+        if (res?.ok) {
+            // Atualiza estado local
+            setUsers(prev => prev.map(u => u.id === userId ? { 
+                ...u, 
+                ativo,
+                acesso_confirmado: ativo
+            } : u));
+        }
+    }, [authFetch]);
 
     return {
         users,
@@ -83,6 +130,7 @@ export const useUsers = (): UseUsersReturn => {
         updateUser,
         deleteUser,
         changeUserPassword,
-        updateUserPermissions
+        updateUserPermissions,
+        updateUserAccess
     };
 };

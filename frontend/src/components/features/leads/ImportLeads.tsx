@@ -139,7 +139,7 @@ const ImportLeads: React.FC = () => {
         }, 1500);
     };
 
-    const isSuperAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'proprietario';
+    const isSuperAdmin = currentUser?.role === 'proprietario' && (currentUser?.acessos?.includes('config.conta') || currentUser?.acessos?.includes('importacao'));
 
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-12 px-4 animate-in fade-in">

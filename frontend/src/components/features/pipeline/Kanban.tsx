@@ -42,7 +42,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [newTask, setNewTask] = useState({ titulo: '', tipo: TaskType.LIGACAO, data_hora: new Date().toISOString().slice(0, 16) });
 
-    const hasPermission = currentUser?.role === 'proprietario' || currentUser?.role === 'superadmin' || currentUser?.acessos?.includes('negocios');
+    const hasPermission = currentUser?.role === 'proprietario' || currentUser?.acessos?.includes('negocios');
 
     const deal = deals.find(d => String(d.id) === String(dealId));
 
@@ -138,6 +138,10 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                         <div>
                             <h3 className="text-2xl font-black text-slate-800 tracking-tight">{leadName}</h3>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{deal.status}</p>
+                            <div className="flex flex-col gap-1 mt-2">
+                                {lead?.email && <a href={`mailto:${lead.email}`} className="text-[11px] font-bold text-blue-600 hover:underline">{lead.email}</a>}
+                                {lead?.whatsapp && <a href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-green-600 hover:underline">{lead.whatsapp}</a>}
+                            </div>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-800 transition-all cursor-pointer"><X className="w-5 h-5" /></button>
@@ -335,7 +339,7 @@ const Kanban: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id || '');
 
-    const canInteract = currentUser?.role === 'proprietario' || currentUser?.role === 'superadmin' || currentUser?.acessos?.includes('negocios');
+    const canInteract = currentUser?.role === 'proprietario' || currentUser?.acessos?.includes('negocios');
     const isProprietario = currentUser?.role === 'proprietario';
 
     const selectedCompanyObj = useMemo(() => {

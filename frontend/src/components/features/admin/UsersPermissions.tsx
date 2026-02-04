@@ -25,9 +25,10 @@ const UserRow: React.FC<{
     isProprietario: boolean;
     companyName?: string;
     onUpdate: (userId: string, perms: UserPermissions, access: boolean) => void;
+    onUpdateAccess: (userId: string, ativo: boolean) => Promise<void>;
     onResetPass: (userId: string) => void;
     onDelete: (userId: string) => void;
-}> = ({ user, canEdit, isCurrent, isProprietario, companyName, onUpdate, onResetPass, onDelete }) => {
+}> = ({ user, canEdit, isCurrent, isProprietario, companyName, onUpdate, onUpdateAccess, onResetPass, onDelete }) => {
     const [draftPerms, setDraftPerms] = useState<UserPermissions>(user.permissions);
     const [draftAccess, setDraftAccess] = useState<boolean>(user.acesso_confirmado);
     const [hasChanges, setHasChanges] = useState(false);
@@ -51,9 +52,11 @@ const UserRow: React.FC<{
         setDraftPerms(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const handleToggleAccess = () => {
+    const handleToggleAccess = async () => {
         if (!canEdit || isCurrent) return;
-        setDraftAccess(!draftAccess);
+        const newAccess = !draftAccess;
+        setDraftAccess(newAccess);
+        await onUpdateAccess(user.id, newAccess);
     };
 
     const handleSave = () => {
@@ -161,7 +164,7 @@ const UserRow: React.FC<{
 };
 
 const UsersPermissions: React.FC = () => {
-    const { users, companies, currentUser, addUser, deleteUser, changeUserPassword, updateUserPermissions } = useCRM();
+    const { users, companies, currentUser, addUser, deleteUser, changeUserPassword, updateUserPermissions, updateUserAccess } = useCRM();
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
@@ -193,6 +196,10 @@ const UsersPermissions: React.FC = () => {
 
     const handleUpdate = (userId: string, perms: UserPermissions, access: boolean) => {
         updateUserPermissions(userId, perms, access);
+    };
+
+    const handleUpdateAccess = async (userId: string, ativo: boolean) => {
+        await updateUserAccess(userId, ativo);
     };
 
     const handleResetPassword = (userId: string) => {
@@ -249,6 +256,7 @@ const UsersPermissions: React.FC = () => {
                                 companyName={companies.find(c => c.id === user.companyId)?.nome}
                                 canEdit={isProprietario}
                                 onUpdate={handleUpdate}
+                                onUpdateAccess={handleUpdateAccess}
                                 onResetPass={handleResetPassword}
                                 onDelete={(id) => { if (confirm('Remover este acesso permanentemente?')) deleteUser(id); }}
                             />

@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import { CRMProvider, useCRM } from './store';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import Layout from './components/shared/Layout';
+import { ProtectedPage } from './components/ProtectedPage';
 import Kanban from './components/features/pipeline/Kanban';
 import ImportLeads from './components/features/leads/ImportLeads';
 import Trash from './components/features/leads/Trash';
@@ -396,9 +397,9 @@ const LoginView = () => {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setErr('');
-        const success = await login(email, pass);
-        if (!success) {
-            setErr('Credenciais inválidas ou acesso pendente de liberação.');
+        const result = await login(email, pass);
+        if (!result.success) {
+            setErr(result.error || 'Credenciais inválidas ou acesso pendente de liberação.');
             setTimeout(() => setErr(''), 5000);
         }
     };
@@ -1362,15 +1363,15 @@ const Main: React.FC = () => {
     return (
         <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
             {activeTab === 'dashboard' && <Reports />}
-            {activeTab === 'pipeline_settings' && <PipelineSettings />}
-            {activeTab === 'kanban' && <Kanban />}
+            {activeTab === 'pipeline_settings' && <ProtectedPage requiredPermission="config.funil"><PipelineSettings /></ProtectedPage>}
+            {activeTab === 'kanban' && <ProtectedPage requiredPermission="negocios"><Kanban /></ProtectedPage>}
             {activeTab === 'companies' && <Companies />}
-            {activeTab === 'users_permissions' && <UsersPermissions />}
-            {activeTab === 'tasks' && <TasksView />}
-            {activeTab === 'leads' && <LeadsView />}
-            {activeTab === 'products' && <Products />}
-            {activeTab === 'branding' && <Branding />}
-            {activeTab === 'import' && <ImportLeads />}
+            {activeTab === 'users_permissions' && <ProtectedPage requiredPermission="config.conta"><UsersPermissions /></ProtectedPage>}
+            {activeTab === 'tasks' && <ProtectedPage requiredPermission="agenda"><TasksView /></ProtectedPage>}
+            {activeTab === 'leads' && <ProtectedPage requiredPermission="leads"><LeadsView /></ProtectedPage>}
+            {activeTab === 'products' && <ProtectedPage requiredPermission="produtos"><Products /></ProtectedPage>}
+            {activeTab === 'branding' && <ProtectedPage requiredPermission="branding"><Branding /></ProtectedPage>}
+            {activeTab === 'import' && <ProtectedPage requiredPermission="importacao"><ImportLeads /></ProtectedPage>}
             {activeTab === 'trash' && (
                 <>
                     <div className="bg-white p-20 rounded-[40px] border border-slate-200 text-center mb-6">

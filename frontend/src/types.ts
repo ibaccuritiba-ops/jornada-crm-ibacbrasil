@@ -210,7 +210,7 @@ export interface CRMContextType {
     isLoading?: boolean;
 
     setActivePipelineId: (id: string) => void;
-    login: (email: string, pass: string) => Promise<boolean>;
+    login: (email: string, pass: string) => Promise<{success: boolean; error?: string}>;
     logout: () => void;
     addCompany: (company: Omit<Company, 'id'>, adminData?: { email: string; senha: string; nome: string }) => Promise<void>;
     updateCompany: (company: Company) => Promise<void>;
@@ -246,6 +246,7 @@ export interface CRMContextType {
     resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
     updateUser: (user: User) => void;
     updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
+    updateUserAccess: (userId: string, ativo: boolean) => Promise<void>;
     addStage: (pipelineId: string, nome: string) => Promise<void>;
     deleteStage: (id: string, justification?: string) => void;
     updateStage: (id: string, nome: string) => Promise<void>;

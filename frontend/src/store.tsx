@@ -25,11 +25,12 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { leads, setLeads, addLead, updateLead, deleteLead, restoreLead, permanentlyDeleteLead, updateLeadClassificacao, batchUpdateLeadResponsavel, importLeads } = useLeads();
     const { deals, events, setDeals, setEvents, moveDeal, updateDealStatus, updateDealResponsavel, addEvent, addDeal, loadDealsForCompany } = useDeals();
     const { products, dealProducts, setProducts, setDealProducts, addProduct, updateProduct, deleteProduct, addDealProduct, deleteDealProduct } = useProducts();
-    const { users, setUsers, addUser, updateUser, deleteUser, changeUserPassword, updateUserPermissions } = useUsers();
+    const { users, setUsers, addUser, updateUser, deleteUser, changeUserPassword, updateUserPermissions, updateUserAccess } = useUsers();
     const { notifications, setNotifications, approveNotification, rejectNotification } = useNotifications();
 
     // Estado local do provider
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshUsers, setRefreshUsers] = useState(0); // Trigger para refetch de usuários
     const token = localStorage.getItem('token');
     const authFetch = useMemo(() => createAuthFetch(token), [token]);
 
@@ -59,18 +60,35 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             if (resUsuarios?.ok) {
                 const data = await resUsuarios.json();
-                const mappedUsers = data.data?.map((u: any) => ({
-                    id: u._id,
-                    nome: u.nome,
-                    email: u.email,
-                    role: u.role,
-                    companyId: typeof u.empresa === 'object' ? u.empresa?._id : u.empresa,
-                    ativo: u.ativo !== false,
-                    acesso_confirmado: u.acesso_confirmado || false,
-                    permissions: u.permissions || {},
-                    criado_em: u.createdAt,
-                    atualizado_em: u.updatedAt
-                })) || [];
+                const mappedUsers = data.data?.map((u: any) => {
+                    // Converte array de acessos em objeto de permissions
+                    const acessosArray = u.acessos || [];
+                    const permissions = {
+                        leads: acessosArray.includes('leads'),
+                        negociacoes: acessosArray.includes('negocios'),
+                        importacao: acessosArray.includes('importacao'),
+                        relatorios: acessosArray.includes('relatorios'),
+                        produtos: acessosArray.includes('produtos'),
+                        configuracoes: acessosArray.includes('config.conta'),
+                        branding: acessosArray.includes('branding'),
+                        pipelines: acessosArray.includes('config.funil'),
+                        tarefas: acessosArray.includes('agenda')
+                    };
+
+                    return {
+                        id: u._id,
+                        nome: u.nome,
+                        email: u.email,
+                        role: u.role,
+                        companyId: typeof u.empresa === 'object' ? u.empresa?._id : u.empresa,
+                        ativo: u.ativo !== false,
+                        acesso_confirmado: u.ativo !== false, // ativo e acesso_confirmado são a mesma coisa
+                        acessos: acessosArray,
+                        permissions,
+                        criado_em: u.createdAt,
+                        atualizado_em: u.updatedAt
+                    };
+                }) || [];
                 setUsers(mappedUsers);
             }
 
@@ -239,6 +257,73 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [currentUser, fetchInitialData]);
 
+    // Refetch apenas de usuários quando permissões são atualizadas
+    useEffect(() => {
+        if (refreshUsers > 0 && authFetch && currentUser) {
+            const refetchUsers = async () => {
+                try {
+                    const resUsuarios = await authFetch('/usuario');
+                    if (resUsuarios?.ok) {
+                        const data = await resUsuarios.json();
+                        const mappedUsers = data.data?.map((u: any) => {
+                            // Converte array de acessos em objeto de permissions
+                            const acessosArray = u.acessos || [];
+                            const permissions = {
+                                leads: acessosArray.includes('leads'),
+                                negociacoes: acessosArray.includes('negocios'),
+                                importacao: acessosArray.includes('importacao'),
+                                relatorios: acessosArray.includes('relatorios'),
+                                produtos: acessosArray.includes('produtos'),
+                                configuracoes: acessosArray.includes('config.conta'),
+                                branding: acessosArray.includes('branding'),
+                                pipelines: acessosArray.includes('config.funil'),
+                                tarefas: acessosArray.includes('agenda')
+                            };
+
+                            return {
+                                id: u._id,
+                                nome: u.nome,
+                                email: u.email,
+                                role: u.role,
+                                companyId: typeof u.empresa === 'object' ? u.empresa?._id : u.empresa,
+                                ativo: u.ativo !== false,
+                                acesso_confirmado: u.ativo !== false,
+                                acessos: acessosArray,
+                                permissions,
+                                criado_em: u.createdAt,
+                                atualizado_em: u.updatedAt
+                            };
+                        }) || [];
+                        setUsers(mappedUsers);
+
+                        // Atualiza o currentUser se for um dos usuários
+                        const updatedCurrentUser = mappedUsers.find(u => u.id === currentUser.id);
+                        if (updatedCurrentUser) {
+                            setCurrentUser(updatedCurrentUser);
+                            localStorage.setItem('crm_current_user', JSON.stringify(updatedCurrentUser));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro ao refetch usuários:', error);
+                }
+            };
+            refetchUsers();
+        }
+    }, [refreshUsers, authFetch, currentUser, setUsers, setCurrentUser]);
+
+    // Wrappers para atualizar usuários e refetch automático
+    const handleUpdateUserPermissions = useCallback((userId: string, perms: any, access: boolean) => {
+        updateUserPermissions(userId, perms, access);
+        // Dispara refetch após pequeno delay
+        setTimeout(() => setRefreshUsers(prev => prev + 1), 500);
+    }, [updateUserPermissions]);
+
+    const handleUpdateUserAccess = useCallback(async (userId: string, ativo: boolean) => {
+        await updateUserAccess(userId, ativo);
+        // Dispara refetch após pequeno delay
+        setTimeout(() => setRefreshUsers(prev => prev + 1), 500);
+    }, [updateUserAccess]);
+
     return (
         <CRMContext.Provider value={{
             // Estado
@@ -307,7 +392,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updateUser,
             deleteUser,
             changeUserPassword,
-            updateUserPermissions,
+            updateUserPermissions: handleUpdateUserPermissions,
+            updateUserAccess: handleUpdateUserAccess,
 
             // Notifications
             approveNotification,

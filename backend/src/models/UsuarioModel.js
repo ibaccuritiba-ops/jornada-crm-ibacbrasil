@@ -26,6 +26,11 @@ const UsuarioSchema = new mongoose.Schema({
         required: true,
         default: 'vendedor'
     },
+    ativo: {
+        type: Boolean,
+        required: true,
+        default: true
+    },
     acessos: {
         type: [String],
         enum: ['leads', 'negocios', 'importacao', 'relatorios', 'produtos', 'config.conta', 'branding', 'config.funil', 'agenda'],
