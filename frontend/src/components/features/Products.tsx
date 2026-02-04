@@ -5,7 +5,7 @@ import { Product } from '../../types';
 import { Search, Box, Plus, Trash2, Edit2 } from 'lucide-react';
 
 const Products: React.FC = () => {
-    const { products, addProduct, updateProduct, deleteProduct } = useCRM();
+    const { products, addProduct, updateProduct, deleteProduct, currentUser } = useCRM();
     const [showModal, setShowModal] = useState(false);
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const [newProduct, setNewProduct] = useState({ nome: '', valor_total: 0, parcelas: 1 });
@@ -30,7 +30,7 @@ const Products: React.FC = () => {
                 } as Product);
             }
         } else {
-            addProduct(newProduct);
+            addProduct({ ...newProduct, companyId: currentUser?.companyId || '' });
         }
 
         setNewProduct({ nome: '', valor_total: 0, parcelas: 1 });

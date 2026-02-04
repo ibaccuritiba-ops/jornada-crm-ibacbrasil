@@ -8,7 +8,7 @@ interface UseProductsReturn {
     dealProducts: DealProduct[];
     setProducts: (p: Product[]) => void;
     setDealProducts: (dp: DealProduct[]) => void;
-    addProduct: (product: Omit<Product, 'id' | 'companyId'>) => void;
+    addProduct: (product: Omit<Product, 'id'>) => void;
     updateProduct: (product: Product) => void;
     deleteProduct: (id: string, justification?: string) => void;
     addDealProduct: (dealId: string, productId: string) => Promise<void>;
@@ -20,22 +20,69 @@ export const useProducts = (): UseProductsReturn => {
     const [dealProducts, setDealProducts] = useState<DealProduct[]>([]);
     const authFetch = useAuthFetch();
 
-    const addProduct = useCallback((product: Omit<Product, 'id' | 'companyId'>) => {
-        const newProduct: Product = {
-            ...product,
-            id: Math.random().toString(36),
-            companyId: ''
-        };
-        setProducts(prev => [...prev, newProduct]);
-    }, []);
+    const addProduct = useCallback((product: Omit<Product, 'id'>) => {
+        if (!authFetch) return;
+        
+        authFetch('/produto/create', {
+            method: 'POST',
+            body: JSON.stringify({
+                nome: product.nome,
+                valor_total: product.valor_total,
+                parcelas: product.parcelas,
+                empresa: product.companyId
+            })
+        }).then(res => {
+            if (res?.ok) {
+                return res.json();
+            }
+        }).then(data => {
+            if (data?.data) {
+                const newProduct: Product = {
+                    id: data.data._id,
+                    nome: data.data.nome,
+                    valor_total: data.data.valor_total,
+                    parcelas: data.data.parcelas,
+                    companyId: data.data.empresa,
+                    deletado: data.data.excluido || false
+                };
+                setProducts(prev => [...prev, newProduct]);
+            }
+        }).catch(err => console.error('Erro ao criar produto:', err));
+    }, [authFetch]);
 
     const updateProduct = useCallback((product: Product) => {
-        setProducts(prev => prev.map(p => p.id === product.id ? product : p));
-    }, []);
+        if (!authFetch) return;
+        
+        authFetch('/produto/edit', {
+            method: 'POST',
+            body: JSON.stringify({
+                id: product.id,
+                nome: product.nome,
+                valor_total: product.valor_total,
+                parcelas: product.parcelas
+            })
+        }).then(res => {
+            if (res?.ok) {
+                setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+            }
+        }).catch(err => console.error('Erro ao atualizar produto:', err));
+    }, [authFetch]);
 
     const deleteProduct = useCallback((id: string, justification?: string) => {
-        setProducts(prev => prev.filter(p => p.id !== id));
-    }, []);
+        if (!authFetch) return;
+        
+        authFetch('/produto/delete', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                id: id,
+                razao: justification || 'Excluído pelo usuário' 
+            })
+        }).then(res => {
+            if (res?.ok) {
+                setProducts(prev => prev.filter(p => p.id !== id));
+            }
+        }).catch(err => console.error('Erro ao deletar produto:', err));
+    }, [authFetch]);
 
     const addDealProduct = useCallback(async (dealId: string, productId: string) => {
         if (!authFetch) return;
