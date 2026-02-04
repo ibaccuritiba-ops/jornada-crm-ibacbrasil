@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Edit2, Rocket, Trash2, Box, User as UserIcon, Clock, Eye, EyeOff, Search, X, Download, AlertCircle } from 'lucide-react';
+import ExcelJS from 'exceljs';
 import { CRMProvider, useCRM } from './store';
 import { useAuthFetch } from './hooks/useAuthFetch';
 import Layout from './components/shared/Layout';
@@ -19,24 +20,105 @@ import TasksView from './components/features/Tasks';
 import Logo from './components/shared/Logo';
 import { UserProfile, DealStatus, PersonType, Lead, Company, User, TaskStatus, TaskType, EventType } from './types';
 
-// Utilitário para exportação de CSV
-export const exportToCSV = (data: any[], fileName: string) => {
+// Utilitário para exportação em Excel com estilos
+export const exportToExcel = async (data: any[], fileName: string) => {
     if (data.length === 0) return;
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(obj =>
-        Object.values(obj).map(val =>
-            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-        ).join(',')
-    ).join('\n');
-
-    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows;
-    const encodedUri = encodeURI(csvContent);
+    
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Base de Leads");
+    
+    const colKeys = Object.keys(data[0]);
+    
+    // Adicionar cabeçalho
+    const headerRow = worksheet.addRow(colKeys);
+    
+    // Estilo do cabeçalho
+    headerRow.eachCell((cell) => {
+        cell.font = {
+            bold: true,
+            color: { argb: "FFFFFFFF" },
+            size: 11,
+            name: "Calibri"
+        };
+        cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF1F4E78" }
+        };
+        cell.alignment = {
+            horizontal: "center",
+            vertical: "middle",
+            wrapText: true
+        };
+        cell.border = {
+            top: { style: "medium", color: { argb: "FF1F4E78" } },
+            bottom: { style: "medium", color: { argb: "FF1F4E78" } },
+            left: { style: "thin", color: { argb: "FF1F4E78" } },
+            right: { style: "thin", color: { argb: "FF1F4E78" } }
+        };
+    });
+    
+    // Altura do cabeçalho
+    headerRow.height = 25;
+    
+    // Adicionar dados
+    data.forEach((item, rowIndex) => {
+        const row = worksheet.addRow(colKeys.map(key => item[key]));
+        row.height = 20;
+        
+        // Estilo alternado (zebrado)
+        const bgColor = rowIndex % 2 === 0 ? "FFFFFFFF" : "FFD9E8F5";
+        
+        row.eachCell((cell) => {
+            cell.font = {
+                color: { argb: "FF000000" },
+                size: 10,
+                name: "Calibri"
+            };
+            cell.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: bgColor }
+            };
+            cell.alignment = {
+                horizontal: "left",
+                vertical: "middle",
+                wrapText: true
+            };
+            cell.border = {
+                top: { style: "thin", color: { argb: "FFC6D9F0" } },
+                bottom: { style: "thin", color: { argb: "FFC6D9F0" } },
+                left: { style: "thin", color: { argb: "FFC6D9F0" } },
+                right: { style: "thin", color: { argb: "FFC6D9F0" } }
+            };
+        });
+    });
+    
+    // Configurar largura das colunas
+    worksheet.columns = colKeys.map(key => {
+        const maxLength = Math.max(
+            key.length,
+            ...data.map(row => String(row[key] || '').length)
+        );
+        return { width: Math.min(maxLength + 3, 35) };
+    });
+    
+    // Congelar primeira linha
+    worksheet.views = [
+        { state: "frozen", ySplit: 1 }
+    ];
+    
+    // Gerar e fazer download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${fileName}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.href = url;
+    link.download = `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 };
 
 // Componente de Seleção de Período Reutilizável
@@ -527,7 +609,7 @@ const LeadsView = () => {
         else setSelectedLeads([]);
     };
 
-    const handleExportLeads = () => {
+    const handleExportLeads = async () => {
         const dataToExport = filteredLeads.map(l => ({
             Nome: l.nome_completo,
             Email: l.email,
@@ -537,7 +619,7 @@ const LeadsView = () => {
             Estrelas: l.classificacao,
             CriadoEm: new Date(l.criado_em).toLocaleString('pt-BR')
         }));
-        exportToCSV(dataToExport, 'BaseLeads_IbacBrasil');
+        await exportToExcel(dataToExport, 'BaseLeads_IbacBrasil');
     };
 
     const handleEditLead = (lead: Lead) => {

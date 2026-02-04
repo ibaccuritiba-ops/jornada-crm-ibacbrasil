@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCRM } from '../../store';
 import { UserProfile, DealStatus } from '../../types';
-import { exportToCSV } from '../../App';
+import { exportToExcel } from '../../App';
 import { Download } from 'lucide-react';
 
 const Reports: React.FC = () => {
@@ -89,7 +89,7 @@ const Reports: React.FC = () => {
         };
     }, [leads, deals, dealProducts, products, period, selectedCompanyId, filterProductId, startDate, endDate]);
 
-    const handleExportReport = () => {
+    const handleExportReport = async () => {
         const dataToExport = stats.wonDeals.map(d => {
             const lead = leads.find(l => l.id === d.lead_id);
             const dps = dealProducts.filter(dp => String(dp.deal_id) === String(d.id));
@@ -106,7 +106,7 @@ const Reports: React.FC = () => {
             };
         });
 
-        exportToCSV(dataToExport, `Relatorio_Performance_${period}`);
+        await exportToExcel(dataToExport, `Relatorio_Performance_${period}`);
     };
 
     return (
