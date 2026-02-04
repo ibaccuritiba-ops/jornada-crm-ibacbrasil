@@ -198,7 +198,10 @@ export const useLeads = (): UseLeadsReturn => {
                         };
                         successfulLeads.push(newLead);
                     } else {
-                        failed.push({ row: index + 1, reason: 'Erro ao salvar no banco' });
+                        const errorData = await res.json().catch(() => ({}));
+                        const errorMsg = errorData?.message || `Status ${res?.status}`;
+                        console.error(`[importLeads] Erro na linha ${index + 1}:`, errorMsg, { leadPayload, response: errorData });
+                        failed.push({ row: index + 1, reason: errorMsg });
                     }
                 } catch (apiError) {
                     failed.push({ row: index + 1, reason: 'Erro de conexão com servidor' });

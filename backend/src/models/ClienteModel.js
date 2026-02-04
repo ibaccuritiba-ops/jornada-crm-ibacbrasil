@@ -14,7 +14,8 @@ const ClienteSchema = new mongoose.Schema({
     },
     whatsapp: {
         type: String,
-        required: true
+        required: false,
+        default: 'N/A'
     },
     responsavel: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
     origem: {

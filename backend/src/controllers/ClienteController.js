@@ -16,7 +16,7 @@ class ClienteController {
                 empresa: empresa,
                 nome: nome,
                 email: email,
-                whatsapp: whatsapp || '',
+                whatsapp: whatsapp || 'N/A',
                 responsavel: responsavel,
                 origem: origem,
                 tag: tag,
@@ -26,9 +26,9 @@ class ClienteController {
             try {
                 // Se responsavel for 'distribute', fazer rodízio entre usuários da empresa
                 if (responsavel === 'distribute') {
+                    // Tenta encontrar usuários ativos (sem o campo ativo, pois ele não existe)
                     const usuariosAtivos = await UsuarioModel.find({
                         empresa: empresa,
-                        ativo: true,
                         role: { $in: ['vendedor', 'superadmin'] }
                     });
 
@@ -57,7 +57,7 @@ class ClienteController {
             empresa: empresa,
             nome: nome,
             email: email,
-            whatsapp: whatsapp,
+            whatsapp: whatsapp || 'N/A',
             responsavel: responsavel,
             origem: origem,
             tag: tag,
@@ -79,6 +79,7 @@ class ClienteController {
             await NegociacaoModel.create(negociacao);
             return res.status(201).send({ message: "Cliente created with success!", data: createdCliente })
         } catch (error) {
+            console.error('[ClienteController.create] Error:', error);
             return res.status(500).send({ message: "An error ocurred when creating a Cliente.", error: error.message })
         }
     }
