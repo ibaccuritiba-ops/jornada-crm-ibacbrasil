@@ -288,10 +288,16 @@ const UsersPermissions: React.FC = () => {
                             </div>
                             {isPlatformMaster && (
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Empresa</label>
-                                    <select required className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" value={newUser.empresa} onChange={e => setNewUser({ ...newUser, empresa: e.target.value })}>
-                                        <option value="">Selecione uma empresa...</option>
-                                        {companies.map(company => (
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Empresa {newUser.role !== 'proprietario' ? '*' : '(Opcional - Proprietário Global)'}</label>
+                                    <select 
+                                        required={newUser.role !== 'proprietario'}
+                                        disabled={newUser.role === 'proprietario'}
+                                        className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                                        value={newUser.empresa} 
+                                        onChange={e => setNewUser({ ...newUser, empresa: e.target.value })}
+                                    >
+                                        <option value="">{newUser.role === 'proprietario' ? 'Nenhuma (Global)' : 'Selecione uma empresa...'}</option>
+                                        {newUser.role !== 'proprietario' && companies.map(company => (
                                             <option key={company.id} value={company.id}>
                                                 {company.nome}
                                             </option>

@@ -65,9 +65,10 @@ export const useUsers = (): UseUsersReturn => {
     const changeUserPassword = useCallback(async (userId: string, newPass: string) => {
         if (!authFetch) return;
         
+        const encryptedPass = encryptPassword(newPass);
         await authFetch('/usuario/passwordupdate', {
             method: 'POST',
-            body: JSON.stringify({ id: userId, newPassword: newPass })
+            body: JSON.stringify({ id: userId, newPassword: encryptedPass })
         });
     }, [authFetch]);
 

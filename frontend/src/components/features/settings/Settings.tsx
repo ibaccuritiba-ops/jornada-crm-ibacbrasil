@@ -4,7 +4,7 @@ import { User, Eye, EyeOff } from 'lucide-react';
 
 const Settings: React.FC = () => {
     const {
-        currentUser, currentCompany, companies, changeUserPassword
+        currentUser, changeUserPassword
     } = useCRM();
 
     const [myPassData, setMyPassData] = useState({ current: '', new: '', confirm: '' });
@@ -22,38 +22,10 @@ const Settings: React.FC = () => {
         setMyPassData({ current: '', new: '', confirm: '' });
     };
 
-    const handleSelectCompany = (id: string) => {
-        // CORREÇÃO: Usa 'role' (string) em vez de UserProfile (enum)
-        if (currentUser?.role !== 'proprietario') return;
-        localStorage.setItem('crm_selected_company_id', id);
-        window.location.reload();
-    };
-
-    // CORREÇÃO: Tratamento seguro para exibir o cargo (evita o erro do .replace)
     const userRoleDisplay = (currentUser?.role || 'Usuário').toUpperCase();
 
     return (
         <div className="max-w-4xl mx-auto pb-20 space-y-12 px-4 animate-in fade-in">
-
-            {/* CONTEXTO (Apenas Proprietário) */}
-            {currentUser?.role === 'proprietario' && (
-                <section className="bg-slate-900 p-8 rounded-[40px] text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                        <div>
-                            <h3 className="text-xl font-black text-white">Alternar Operação SaaS</h3>
-                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Configurações globais de visualização</p>
-                        </div>
-                        <select
-                            className="bg-white/10 border border-white/20 p-4 rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-500 transition-all cursor-pointer text-white w-full md:w-auto min-w-[240px]"
-                            value={currentCompany?.id || ''}
-                            onChange={(e) => handleSelectCompany(e.target.value)}
-                        >
-                            {companies.map(c => <option key={c.id} value={c.id} className="text-slate-900">{c.nome}</option>)}
-                        </select>
-                    </div>
-                </section>
-            )}
 
             {/* MEU PERFIL */}
             <section className="space-y-6">

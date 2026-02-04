@@ -5,7 +5,7 @@ const UsuarioSchema = new mongoose.Schema({
     empresa: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Empresa',
-        required: true
+        required: false
     },
     nome: {
         type: String,

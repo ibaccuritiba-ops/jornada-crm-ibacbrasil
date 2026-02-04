@@ -7,14 +7,20 @@ class UsuarioController {
     static async create(req, res) {
         const { empresa, nome, email, senha, role } = req.body;
 
-        if (!empresa || !nome || !email || !senha || !role) return res.status(400).send({ message: "Data is missing!" });
+        // Proprietários não precisam de empresa vinculada
+        if (!nome || !email || !senha || !role) return res.status(400).send({ message: "Data is missing!" });
+        if (role !== 'proprietario' && !empresa) return res.status(400).send({ message: "Empresa is required for non-proprietario users!" });
 
         const usuario = {
-            empresa: empresa,
             nome: nome,
             email: email,
             senha: senha,
             role: role
+        };
+
+        // Só adiciona empresa se não for proprietário
+        if (role !== 'proprietario') {
+            usuario.empresa = empresa;
         }
 
         try {
