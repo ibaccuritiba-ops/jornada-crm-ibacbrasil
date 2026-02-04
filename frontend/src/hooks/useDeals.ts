@@ -8,7 +8,7 @@ interface UseDealsReturn {
     events: DealEvent[];
     setDeals: (deals: Deal[]) => void;
     setEvents: (events: DealEvent[]) => void;
-    addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
+    addDeal: (dealData: Omit<Deal, 'id' | 'criado_em' | 'atualizado_em'>) => Promise<{ success: boolean; deal?: Deal; error?: string }>;
     moveDeal: (dealId: string, stageId: string) => Promise<void>;
     updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => void;
     updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;
@@ -21,9 +21,62 @@ export const useDeals = (): UseDealsReturn => {
     const [events, setEvents] = useState<DealEvent[]>([]);
     const authFetch = useAuthFetch();
 
-    const addDeal = useCallback((dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => {
-        return { success: false, error: "Use addLead para criar negociações" };
-    }, []);
+    const addDeal = useCallback(async (dealData: Omit<Deal, 'id' | 'criado_em' | 'atualizado_em'>) => {
+        if (!authFetch) return { success: false, error: 'Auth not available' };
+
+        const dealPayload = {
+            cliente: dealData.lead_id,
+            funil: dealData.pipeline_id,
+            etapa: dealData.stage_id,
+            responsavel: dealData.responsavel_id,
+            empresa: dealData.companyId,
+            status: dealData.status
+        };
+
+        console.log('📤 Criando deal:', dealPayload);
+
+        try {
+            const res = await authFetch('/negociacao', {
+                method: 'POST',
+                body: JSON.stringify(dealPayload)
+            });
+
+            console.log('📥 Resposta do backend:', res?.ok, res?.status);
+
+            if (res?.ok) {
+                const responseData = await res.json();
+                console.log('✅ Deal criado no backend:', responseData.data?._id);
+                
+                const newDeal: Deal = {
+                    id: responseData.data?._id || Math.random().toString(36).substring(7),
+                    companyId: dealData.companyId || '',
+                    criado_em: responseData.data?.createdAt || new Date().toISOString(),
+                    atualizado_em: responseData.data?.updatedAt || new Date().toISOString(),
+                    ...dealData
+                };
+                
+                console.log('🔄 Atualizando estado deals com:', newDeal);
+                setDeals(prev => {
+                    console.log('📋 Array deals anterior:', prev);
+                    const newArray = [...prev, newDeal];
+                    console.log('📋 Array deals novo:', newArray);
+                    return newArray;
+                });
+                
+                // Espera um microtick para garantir que React processou o state update
+                await new Promise(resolve => setTimeout(resolve, 0));
+                console.log('✨ Deal adicionado com sucesso');
+                
+                return { success: true, deal: newDeal };
+            }
+            console.log('❌ Erro: resposta não OK');
+            return { success: false, error: 'Erro ao criar negociação' };
+        } catch (error) {
+            console.log('❌ Exceção:', error);
+            return { success: false, error: 'Erro ao criar negociação' };
+        }
+    }, [authFetch]);
+
 
     const moveDeal = useCallback(async (dealId: string, stageId: string) => {
         if (!authFetch) return;

@@ -1,6 +1,36 @@
 const { NegociacaoModel } = require('../models/NegociacaoModel');
 
 class NegociacaoController {
+    static async create(req, res) {
+        const { cliente, funil, etapa, responsavel, empresa, status } = req.body;
+
+        if (!cliente || !funil || !etapa || !responsavel || !empresa) {
+            return res.status(400).send({ message: "Data is missing!" });
+        }
+
+        try {
+            const negociacao = {
+                cliente,
+                funil,
+                etapa,
+                responsavel,
+                empresa,
+                status: status || 'aberto'
+            };
+
+            const createdNegociacao = await NegociacaoModel.create(negociacao);
+            return res.status(201).send({ 
+                message: "Negociação created with success!", 
+                data: createdNegociacao 
+            });
+        } catch (error) {
+            return res.status(500).send({ 
+                message: "An error occurred when creating a Negociação.", 
+                error: error.message 
+            });
+        }
+    }
+
     static async getAllNegociacoes(req, res) {
         try {
             const negociacoes = await NegociacaoModel.find()

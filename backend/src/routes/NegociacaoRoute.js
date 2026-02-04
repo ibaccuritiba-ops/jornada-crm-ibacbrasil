@@ -5,6 +5,7 @@ const route = express.Router();
 
 route
     .get('/', NegociacaoController.getAllNegociacoes)
+    .post('/', NegociacaoController.create)
     .post('/updateetapa', NegociacaoController.updateEtapa)
     .post('/updatebyid', NegociacaoController.updateNegById)
     .post('/addtarefa', NegociacaoController.addTarefaById)

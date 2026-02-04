@@ -10,9 +10,9 @@ const getSafeId = (data: any): string => {
     return data.id || data._id || '';
 };
 
-const Stars: React.FC<{ rating: number; size?: 'sm' | 'md'; onSelect?: (r: number) => void }> = ({ rating, size = 'sm', onSelect }) => {
+const Stars: React.FC<{ rating: number; size?: 'sm' | 'md' | 'lg'; onSelect?: (r: number) => void }> = ({ rating, size = 'sm', onSelect }) => {
     const stars = [1, 2, 3, 4, 5];
-    const sizeClasses = size === 'sm' ? 'text-[10px]' : 'text-lg';
+    const sizeClasses = size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-lg' : 'text-3xl';
     return (
         <div className="flex gap-0.5">
             {stars.map(s => (
@@ -52,7 +52,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
     const lead = leads.find(l => String(l.id) === String(clientId));
 
     // Proteção contra lead nulo
-    const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
+    const leadRating = (lead as any)?.rating || lead?.classificacao || 3;
     const leadName = lead?.nome_completo || (lead as any)?.nome || 'Lead Desconhecido';
 
     const currentDealProducts = dealProducts ? dealProducts.filter(dp => String(dp.deal_id) === String(dealId)) : [];
@@ -153,7 +153,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                     <div className="w-1/3 border-r border-slate-100 p-8 space-y-8 bg-slate-50/30 overflow-y-auto">
                         {!showLostReason && !showWonReason ? (
                             <>
-                                <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Classificação</p><Stars rating={leadRating} onSelect={r => hasPermission && lead && updateLeadClassificacao(lead.id, r)} /></div>
+                                <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Classificação</p><Stars rating={leadRating} size="lg" onSelect={r => hasPermission && lead && updateLeadClassificacao(lead.id, r)} /></div>
                                 <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Valor</p><h4 className="text-3xl font-black text-slate-900">R$ {totalOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4></div>
                                 {deal.status === DealStatus.ABERTA && hasPermission && (
                                     <div className="space-y-3 pt-4 border-t border-slate-100">
@@ -378,7 +378,7 @@ const Kanban: React.FC = () => {
         const matchesStatus = d.status === activeStatusTab;
         const dealPipelineId = getSafeId((d as any).funil || d.pipeline_id);
         const matchesPipeline = String(dealPipelineId) === String(activePipelineId);
-        const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
+        const leadRating = (lead as any)?.rating || lead?.classificacao || 3;
         const matchesRating = filterRating === 'all' || leadRating === filterRating;
         return matchesStatus && matchesPipeline && matchesRating;
     }), [deals, leads, activeStatusTab, activePipelineId, filterRating]);
@@ -526,7 +526,7 @@ const Kanban: React.FC = () => {
                                         const clientId = getSafeId((deal as any).cliente || deal.lead_id);
                                         const lead = leads.find(l => String(l.id) === String(clientId));
                                         const value = getDealValue(deal.id);
-                                        const leadRating = (lead as any)?.rating || lead?.classificacao || 1;
+                                        const leadRating = (lead as any)?.rating || lead?.classificacao || 3;
                                         const leadName = lead?.nome_completo || (lead as any)?.nome || 'Sem Nome';
                                         const leadTag = (lead as any)?.tag || lead?.campanha || 'Geral';
 
@@ -539,7 +539,7 @@ const Kanban: React.FC = () => {
                                                 className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-blue-400 transition-all shadow-sm cursor-pointer group active:scale-95"
                                             >
                                                 <div className="flex justify-between items-start mb-3">
-                                                    <Stars rating={leadRating} />
+                                                    <Stars rating={leadRating} size="md" />
                                                 </div>
                                                 <p className="font-black text-slate-800 text-sm leading-tight mb-1">
                                                     {leadName}

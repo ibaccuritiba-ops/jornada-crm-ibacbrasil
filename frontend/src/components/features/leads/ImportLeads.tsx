@@ -5,7 +5,7 @@ import { UserProfile } from '../../../types';
 import { Download, RotateCcw, Check } from 'lucide-react';
 
 const ImportLeads: React.FC = () => {
-    const { importLeads, stages, syncLeadsFromFluent, currentUser, users } = useCRM();
+    const { importLeads, stages, syncLeadsFromFluent, currentUser, users, companies } = useCRM();
     const [rawText, setRawText] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [result, setResult] = useState<{ imported: number; failed: any[] } | null>(null);
@@ -18,11 +18,40 @@ const ImportLeads: React.FC = () => {
 
     // Novos estados para Alocação
     const [allocationMode, setAllocationMode] = useState<'specific' | 'distribute'>('specific');
-    const [specificUserId, setSpecificUserId] = useState(currentUser?.id || '');
+    const [specificUserId, setSpecificUserId] = useState('');
+    const [selectedCompanyId, setSelectedCompanyId] = useState('');
 
-    const companyUsers = useMemo(() =>
-        users.filter(u => u.companyId === currentUser?.companyId && u.ativo),
-        [users, currentUser]);
+    const isProprietario = currentUser?.role === 'proprietario';
+
+    // Empresas disponíveis (todas para proprietario, apenas a sua para outros)
+    const availableCompanies = useMemo(() => {
+        if (isProprietario) {
+            return companies.filter(c => !c.deletado);
+        }
+        return companies.filter(c => c.id === currentUser?.companyId && !c.deletado);
+    }, [companies, isProprietario, currentUser]);
+
+    // Empresa efetiva (selecionada ou do usuário)
+    const effectiveCompanyId = isProprietario ? selectedCompanyId : currentUser?.companyId;
+
+    // Usuários da empresa selecionada
+    const companyUsers = useMemo(() => {
+        if (!effectiveCompanyId) return [];
+        return users.filter(u => 
+            u.companyId === effectiveCompanyId && 
+            u.ativo && 
+            (u.role === 'vendedor' || u.role === 'superadmin')
+        );
+    }, [users, effectiveCompanyId]);
+
+    // Inicializar specificUserId quando a empresa mudar
+    useEffect(() => {
+        if (companyUsers.length > 0) {
+            setSpecificUserId(companyUsers[0].id);
+        } else {
+            setSpecificUserId('');
+        }
+    }, [effectiveCompanyId, companyUsers]);
 
     const parseData = (text: string) => {
         if (!text.trim()) return [];
@@ -69,19 +98,34 @@ const ImportLeads: React.FC = () => {
     };
 
     const handleImport = async () => {
+        if (!effectiveCompanyId && isProprietario) {
+            alert('Selecione uma empresa para importar leads');
+            return;
+        }
+
+        if (allocationMode === 'specific' && !specificUserId) {
+            alert('Selecione um responsável para os leads');
+            return;
+        }
+
         setIsProcessing(true);
         const data = parseData(rawText);
 
-        setTimeout(() => {
-            const report = importLeads(data, {
+        try {
+            const report = await importLeads(data, {
                 mode: allocationMode,
-                userId: allocationMode === 'specific' ? specificUserId : undefined
-            });
+                userId: allocationMode === 'specific' ? specificUserId : undefined,
+                companyId: effectiveCompanyId
+            } as any);
             setResult(report);
             setRawText('');
             setPreview([]);
+        } catch (error) {
+            console.error('Erro na importação:', error);
+            alert('Erro ao importar leads. Verifique o console.');
+        } finally {
             setIsProcessing(false);
-        }, 800);
+        }
     };
 
     const handleSyncFluent = () => {
@@ -142,6 +186,23 @@ const ImportLeads: React.FC = () => {
                     {/* Painel de Configurações de Distribuição */}
                     <div className="space-y-6">
                         <div className="bg-slate-900 text-white p-8 rounded-[40px] shadow-2xl border border-white/10 space-y-8">
+                            {/* Filtro de Empresa para Proprietarios */}
+                            {isProprietario && (
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 mb-4">Selecionar Empresa</h4>
+                                    <select
+                                        className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white outline-none focus:ring-4 focus:ring-blue-500/30 cursor-pointer"
+                                        value={selectedCompanyId}
+                                        onChange={(e) => setSelectedCompanyId(e.target.value)}
+                                    >
+                                        <option value="">-- Selecione uma Empresa --</option>
+                                        {availableCompanies.map(c => (
+                                            <option key={c.id} value={c.id} className="bg-slate-900">{c.nome}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div>
                                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 mb-6">Regra de Distribuição</h4>
                                 <div className="space-y-3">
@@ -172,22 +233,29 @@ const ImportLeads: React.FC = () => {
                             {allocationMode === 'specific' && (
                                 <div className="animate-in slide-in-from-top-2 duration-300">
                                     <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Selecionar Responsável</label>
-                                    <select
-                                        className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white outline-none focus:ring-4 focus:ring-blue-500/30 cursor-pointer"
-                                        value={specificUserId}
-                                        onChange={(e) => setSpecificUserId(e.target.value)}
-                                    >
-                                        {companyUsers.map(u => (
-                                            <option key={u.id} value={u.id} className="bg-slate-900">{u.nome}</option>
-                                        ))}
-                                    </select>
+                                    {companyUsers.length === 0 ? (
+                                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-yellow-300 text-[10px] font-bold text-center">
+                                            Nenhum consultor disponível na empresa selecionada
+                                        </div>
+                                    ) : (
+                                        <select
+                                            className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white outline-none focus:ring-4 focus:ring-blue-500/30 cursor-pointer"
+                                            value={specificUserId}
+                                            onChange={(e) => setSpecificUserId(e.target.value)}
+                                        >
+                                            <option value="">-- Selecione um Responsável --</option>
+                                            {companyUsers.map(u => (
+                                                <option key={u.id} value={u.id} className="bg-slate-900">{u.nome}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                             )}
 
                             <div className="pt-4">
                                 <button
                                     onClick={handleImport}
-                                    disabled={isProcessing || !rawText.trim()}
+                                    disabled={isProcessing || !rawText.trim() || (isProprietario && !selectedCompanyId)}
                                     className="w-full btn-liquid-glass bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 disabled:opacity-30 cursor-pointer shadow-xl shadow-blue-600/20 transition-all active:scale-95"
                                 >
                                     {isProcessing ? 'Processando Dados...' : 'Iniciar Lote Agora'}

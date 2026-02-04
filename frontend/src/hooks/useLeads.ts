@@ -11,9 +11,9 @@ interface UseLeadsReturn {
     deleteLead: (leadId: string, reason: string) => Promise<void>;
     restoreLead: (leadId: string) => void;
     permanentlyDeleteLead: (leadId: string) => Promise<void>;
-    updateLeadClassificacao: (leadId: string, classificacao: number) => void;
+    updateLeadClassificacao: (leadId: string, classificacao: number) => Promise<void>;
     batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
-    importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
+    importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string, companyId?: string }) => Promise<{ imported: number; failed: { row: number; reason: string }[] }>;
 }
 
 export const useLeads = (): UseLeadsReturn => {
@@ -39,7 +39,7 @@ export const useLeads = (): UseLeadsReturn => {
                     whatsapp: leadData.whatsapp || data.data.whatsapp || '',
                     tipo_pessoa: leadData.tipo_pessoa || 'PF',
                     campanha: leadData.campanha || '',
-                    classificacao: leadData.classificacao || 1,
+                    classificacao: leadData.classificacao || 3,
                     responsavel_id: leadData.responsavel || leadData.responsavel_id || data.data.responsavel || '',
                     companyId: data.data.empresa,
                     criado_em: data.data.createdAt,
@@ -100,18 +100,122 @@ export const useLeads = (): UseLeadsReturn => {
         setLeads(prev => prev.filter(l => l.id !== leadId));
     }, [authFetch]);
 
-    const updateLeadClassificacao = useCallback((leadId: string, classificacao: number) => {
+    const updateLeadClassificacao = useCallback(async (leadId: string, classificacao: number) => {
+        if (!authFetch) return;
+        
+        const lead = leads.find(l => l.id === leadId);
+        if (!lead) return;
+        
+        await authFetch('/cliente/edit', {
+            method: 'POST',
+            body: JSON.stringify({ id: leadId, classificacao })
+        });
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, classificacao } : l));
-    }, []);
+    }, [authFetch, leads]);
 
     const batchUpdateLeadResponsavel = useCallback((leadIds: string[], responsavelId: string) => {
         setLeads(prev => prev.map(l => leadIds.includes(l.id) ? { ...l, responsavel_id: responsavelId } : l));
     }, []);
 
-    const importLeads = useCallback((data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => {
-        // TODO: Implementar importação em lote
-        return { imported: 0, failed: [] };
-    }, []);
+    const importLeads = useCallback(async (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string, companyId?: string }) => {
+        if (!authFetch) return { imported: 0, failed: [] };
+
+        const failed: { row: number; reason: string }[] = [];
+        const successfulLeads: Lead[] = [];
+
+        // Para modo distribute, preparar lista de usuários para rodízio
+        let allocationIndex = 0;
+        let availableUsers: string[] = [];
+        
+        if (allocation.mode === 'distribute' && allocation.companyId) {
+            // Esta lista será preenchida depois, por enquanto vamos usar um índice
+            // O backend deve retornar os usuários da empresa
+            availableUsers = [];
+        }
+
+        for (let index = 0; index < data.length; index++) {
+            const item = data[index];
+            try {
+                // Validar campos obrigatórios
+                if (!item.nome_completo || !item.nome_completo.trim()) {
+                    failed.push({ row: index + 1, reason: 'Nome vazio' });
+                    continue;
+                }
+                if (!item.email || !item.email.trim()) {
+                    failed.push({ row: index + 1, reason: 'Email vazio' });
+                    continue;
+                }
+
+                // Validar email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(item.email)) {
+                    failed.push({ row: index + 1, reason: 'Email inválido' });
+                    continue;
+                }
+
+                // Determinar responsável baseado na alocação
+                let responsavel_id = '';
+                if (allocation.mode === 'specific' && allocation.userId) {
+                    responsavel_id = allocation.userId;
+                } else if (allocation.mode === 'distribute') {
+                    // Rodízio cíclico será feito no backend, vamos informar o companyId
+                    responsavel_id = 'distribute';
+                }
+
+                // Preparar payload para o backend
+                const leadPayload = {
+                    nome: item.nome_completo.trim(),
+                    email: item.email.trim(),
+                    whatsapp: item.whatsapp?.trim() || '',
+                    tipo_pessoa: item.tipo_pessoa || 'PF',
+                    campanha: item.campanha || '',
+                    empresa: allocation.companyId,
+                    responsavel: responsavel_id // 'distribute' ou userId específico
+                };
+
+                // Enviar para o backend
+                try {
+                    const res = await authFetch('/cliente', {
+                        method: 'POST',
+                        body: JSON.stringify(leadPayload)
+                    });
+
+                    if (res?.ok) {
+                        const responseData = await res.json();
+                        const newLead: Lead = {
+                            id: responseData.data._id,
+                            nome_completo: item.nome_completo.trim(),
+                            email: item.email.trim(),
+                            whatsapp: item.whatsapp?.trim() || '',
+                            tipo_pessoa: item.tipo_pessoa || 'PF',
+                            campanha: item.campanha || '',
+                            classificacao: 3,
+                            responsavel_id: responseData.data.responsavel || '',
+                            companyId: allocation.companyId || responseData.data.empresa,
+                            criado_em: responseData.data.createdAt,
+                            atualizado_em: responseData.data.updatedAt,
+                            deletado: false
+                        };
+                        successfulLeads.push(newLead);
+                    } else {
+                        failed.push({ row: index + 1, reason: 'Erro ao salvar no banco' });
+                    }
+                } catch (apiError) {
+                    failed.push({ row: index + 1, reason: 'Erro de conexão com servidor' });
+                }
+            } catch (error) {
+                failed.push({ row: index + 1, reason: 'Erro ao processar linha' });
+            }
+        }
+
+        // Adicionar os leads bem-sucedidos ao estado
+        setLeads(prev => [...prev, ...successfulLeads]);
+
+        return {
+            imported: successfulLeads.length,
+            failed: failed
+        };
+    }, [authFetch]);
 
     return {
         leads,

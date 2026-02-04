@@ -1,10 +1,54 @@
 const { ClienteModel } = require('../models/ClienteModel');
 const { NegociacaoModel } = require('../models/NegociacaoModel');
+const { UsuarioModel } = require('../models/UsuarioModel');
 
 class ClienteController {
     static async create(req, res) {
         const { empresa, nome, email, whatsapp, responsavel, origem, tag, produto, funil, etapa } = req.body
 
+        // Para importação simples (sem funil/etapa), apenas criar o cliente
+        if (!funil || !etapa) {
+            if (!empresa || !nome || !email) {
+                return res.status(400).send({ message: "Data is missing!" });
+            }
+
+            const cliente = {
+                empresa: empresa,
+                nome: nome,
+                email: email,
+                whatsapp: whatsapp || '',
+                responsavel: responsavel,
+                origem: origem,
+                tag: tag,
+                produto: produto
+            }
+
+            try {
+                // Se responsavel for 'distribute', fazer rodízio entre usuários da empresa
+                if (responsavel === 'distribute') {
+                    const usuariosAtivos = await UsuarioModel.find({
+                        empresa: empresa,
+                        ativo: true,
+                        role: { $in: ['vendedor', 'superadmin'] }
+                    });
+
+                    if (usuariosAtivos.length === 0) {
+                        return res.status(400).send({ message: "Nenhum usuário ativo na empresa" });
+                    }
+
+                    // Usar um índice pseudo-aleatório para distribuição
+                    const randomIndex = Math.floor(Math.random() * usuariosAtivos.length);
+                    cliente.responsavel = usuariosAtivos[randomIndex]._id;
+                }
+
+                const createdCliente = await ClienteModel.create(cliente);
+                return res.status(201).send({ message: "Cliente created with success!", data: createdCliente })
+            } catch (error) {
+                return res.status(500).send({ message: "An error ocurred when creating a Cliente.", error: error.message })
+            }
+        }
+
+        // Caso original: criar cliente + negociação
         if (!empresa || !nome || !email || !whatsapp || !responsavel || !funil || !etapa) {
             return res.status(400).send({ message: "Data is missing!" });
         }

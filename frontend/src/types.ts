@@ -222,14 +222,14 @@ export interface CRMContextType {
     batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
     importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute'; userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
     syncLeadsFromFluent: (config: { tags?: string[]; lists?: string[] }) => { imported: number; updated: number };
-    updateLeadClassificacao: (leadId: string, classificacao: number) => void;
+    updateLeadClassificacao: (leadId: string, classificacao: number) => Promise<void>;
     addPipeline: (nome: string, empresaId?: string) => Promise<void>;
     loadPipelinesForCompany: (empresaId: string) => Promise<void>;
     loadStagesForPipeline: (pipelineId: string) => Promise<void>;
     loadTasksForCompany: (empresaId: string) => Promise<void>;
     updatePipeline: (id: string, nome: string) => Promise<void>;
     deletePipeline: (id: string, justification?: string) => Promise<void>;
-    addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
+    addDeal: (dealData: Omit<Deal, 'id' | 'criado_em' | 'atualizado_em'>) => Promise<{ success: boolean; deal?: Deal; error?: string }>;
     moveDeal: (dealId: string, stageId: string) => Promise<void>;
     updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage'; value: number }) => void;
     updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;

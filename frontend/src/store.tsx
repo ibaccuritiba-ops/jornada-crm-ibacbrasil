@@ -85,7 +85,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     email: c.email,
                     whatsapp: c.whatsapp,
                     campanha: c.tag || 'Orgânico',
-                    classificacao: c.rating || 1,
+                    classificacao: c.rating || 3,
                     responsavel_id: c.responsavel?._id || c.responsavel,
                     criado_em: c.createdAt,
                     atualizado_em: c.updatedAt,

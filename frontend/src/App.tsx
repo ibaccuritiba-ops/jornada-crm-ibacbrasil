@@ -196,7 +196,7 @@ const checkDateInRange = (dateStr: string, period: string, startDate: string, en
 };
 
 // SIMPLE STARS COMPONENT
-const Stars: React.FC<{ rating: number; onSelect?: (r: number) => void }> = ({ rating, onSelect }) => {
+const Stars: React.FC<{ rating: number; onSelect?: (r: number) => Promise<void> | void }> = ({ rating, onSelect }) => {
     const stars = [1, 2, 3, 4, 5];
     return (
         <div className="flex gap-0.5">
@@ -483,6 +483,7 @@ const LeadsView = () => {
 
     const [allocationModal, setAllocationModal] = useState<{ show: boolean, leadIds: string[] }>({ show: false, leadIds: [] });
     const [responsavelModal, setResponsavelModal] = useState<{ show: boolean, leadIds: string[] }>({ show: false, leadIds: [] });
+    const [dealModal, setDealModal] = useState<{ show: boolean, lead: Lead | null }>({ show: false, lead: null });
     const [selectedPipelineId, setSelectedPipelineId] = useState('');
     const [selectedStageId, setSelectedStageId] = useState('');
     const [newResponsavelId, setNewResponsavelId] = useState('');
@@ -495,7 +496,7 @@ const LeadsView = () => {
         whatsapp: '',
         tipo_pessoa: PersonType.PF,
         campanha: '',
-        classificacao: 1,
+        classificacao: 3,
         pipeline_id: '',
         stage_id: '',
         responsavel_id: '',
@@ -639,16 +640,27 @@ const LeadsView = () => {
         setShowModal(true);
     };
 
-    const handleCreateOrUpdateLead = (e: React.FormEvent) => {
+    const handleCreateOrUpdateLead = async (e: React.FormEvent) => {
         e.preventDefault();
         const { pipeline_id, stage_id, productId, ...leadToSave } = newLead;
 
+        console.log('🚀 handleCreateOrUpdateLead - Iniciado');
+        console.log('pipeline_id:', pipeline_id, 'stage_id:', stage_id);
+
+        // Validar: se funil está selecionado, etapa é obrigatória
+        if (pipeline_id && !stage_id) {
+            alert('Por favor, selecione uma etapa para o funil selecionado.');
+            return;
+        }
+
         if (editingLeadId) {
+            console.log('📝 Editando lead existente');
             const existing = leads.find(l => l.id === editingLeadId);
             if (existing) {
                 updateLead({ ...existing, ...leadToSave } as Lead);
             }
         } else {
+            console.log('➕ Criando novo lead');
             // Determina a empresa: proprietarios usam a selecionada, outros usam sua própria empresa
             const companyId = isProprietario ? selectedCompanyForForm : currentUser?.companyId;
 
@@ -660,29 +672,50 @@ const LeadsView = () => {
                 responsavel: leadToSave.responsavel_id || currentUser?.id,
                 funil: pipeline_id,
                 etapa: stage_id,
-                empresa: companyId
+                empresa: companyId,
+                classificacao: leadToSave.classificacao
             };
 
-            const res = addLead(leadPayload as any);
+            const res = await addLead(leadPayload as any);
+            
             if (res.success && res.lead && pipeline_id && stage_id) {
-                const dealRes = addDeal({
+                console.log('🎯 Condição atendida: criaremos deal');
+                console.log('Chamando addDeal com:', {
+                    lead_id: res.lead.id,
+                    pipeline_id,
+                    stage_id,
+                    companyId
+                });
+                
+                const dealRes = await addDeal({
                     lead_id: res.lead.id,
                     pipeline_id: pipeline_id,
                     stage_id: stage_id,
                     responsavel_id: res.lead.responsavel_id || currentUser?.id || '',
-                    status: DealStatus.ABERTA
+                    status: DealStatus.ABERTA,
+                    companyId: companyId || ''
                 });
+
+                console.log('✨ Deal result:', dealRes);
 
                 // Vínculo inicial de produto para que o valor apareça no Kanban
                 if (dealRes.success && dealRes.deal && productId) {
                     addDealProduct(dealRes.deal.id, productId);
                 }
+            } else {
+                console.log('❌ Condição não atendida:', {
+                    'res.success': res.success,
+                    'res.lead': res.lead?.id,
+                    pipeline_id,
+                    stage_id
+                });
             }
         }
+        console.log('🏁 Fechando modal e limpando estado');
         setShowModal(false);
         setEditingLeadId(null);
         setSelectedCompanyForForm('');
-        setNewLead({ nome_completo: '', email: '', whatsapp: '', tipo_pessoa: PersonType.PF, campanha: '', classificacao: 1, pipeline_id: '', stage_id: '', responsavel_id: '', productId: '' });
+        setNewLead({ nome_completo: '', email: '', whatsapp: '', tipo_pessoa: PersonType.PF, campanha: '', classificacao: 3, pipeline_id: '', stage_id: '', responsavel_id: '', productId: '' });
     };
 
     const handleBatchUpdateResponsavel = (e: React.FormEvent) => {
@@ -694,23 +727,24 @@ const LeadsView = () => {
         setSelectedLeads([]);
     };
 
-    const handleBatchAllocate = (e: React.FormEvent) => {
+    const handleBatchAllocate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (allocationModal.leadIds.length === 0 || !selectedPipelineId || !selectedStageId) return;
 
-        allocationModal.leadIds.forEach(id => {
+        for (const id of allocationModal.leadIds) {
             const alreadyInFunnel = deals.some(d => String(d.lead_id) === String(id) && d.status === DealStatus.ABERTA);
             if (!alreadyInFunnel) {
                 const lead = leads.find(l => l.id === id);
-                addDeal({
+                await addDeal({
                     lead_id: id,
                     pipeline_id: selectedPipelineId,
                     stage_id: selectedStageId,
                     responsavel_id: lead?.responsavel_id || currentUser?.id || '',
-                    status: DealStatus.ABERTA
+                    status: DealStatus.ABERTA,
+                    companyId: lead?.companyId || ''
                 });
             }
-        });
+        }
 
         setAllocationModal({ show: false, leadIds: [] });
         setSelectedPipelineId('');
@@ -729,6 +763,46 @@ const LeadsView = () => {
     const isLeadInFunnel = (leadId: string) => {
         return deals.some(d => String(d.lead_id) === String(leadId) && d.status === DealStatus.ABERTA);
     };
+
+    // Obter o status da negociação de um lead (qualquer negociação, não apenas ativas)
+    const getLeadDealStatus = (leadId: string) => {
+        const deal = deals.find(d => String(d.lead_id) === String(leadId));
+        return deal ? deal.status : null;
+    };
+
+    // Verificar se há leads já lançados entre os selecionados
+    const hasLaunchedLeads = selectedLeads.some(id => {
+        const deal = deals.find(d => String(d.lead_id) === String(id));
+        return !!deal;
+    });
+
+    // Obter a empresa dos leads selecionados (para os modais de massa)
+    const selectedLeadsCompanyId = useMemo(() => {
+        if (selectedLeads.length === 0) return null;
+        const firstLead = leads.find(l => l.id === selectedLeads[0]);
+        return firstLead?.companyId || null;
+    }, [selectedLeads, leads]);
+
+    // Verificar se todos os leads selecionados são da mesma empresa
+    const allSelectedLeadsSameCompany = useMemo(() => {
+        if (selectedLeads.length === 0) return true;
+        const firstCompanyId = selectedLeadsCompanyId;
+        return selectedLeads.every(id => {
+            const lead = leads.find(l => l.id === id);
+            return lead?.companyId === firstCompanyId;
+        });
+    }, [selectedLeads, selectedLeadsCompanyId, leads]);
+
+    // Pipelines e usuários para os modais de massa (usam a empresa dos leads selecionados)
+    const massActionPipelines = useMemo(() => {
+        if (!selectedLeadsCompanyId) return [];
+        return pipelines.filter(p => p.companyId === selectedLeadsCompanyId);
+    }, [pipelines, selectedLeadsCompanyId]);
+
+    const massActionUsers = useMemo(() => {
+        if (!selectedLeadsCompanyId) return [];
+        return users.filter(u => u.companyId === selectedLeadsCompanyId && u.ativo);
+    }, [users, selectedLeadsCompanyId]);
 
     const clearFilters = () => {
         setSearchTerm('');
@@ -950,38 +1024,56 @@ const LeadsView = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex justify-center">
-                                            <Stars rating={lead.classificacao} onSelect={undefined} />
+                                            <Stars rating={lead.classificacao} onSelect={async (r) => await updateLeadClassificacao(lead.id, r)} />
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex justify-center">
-                                            {inFunnel ? (
-                                                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Negociação Ativa</span>
-                                            ) : (
-                                                <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">Disponível</span>
-                                            )}
+                                            {(() => {
+                                                const dealStatus = getLeadDealStatus(lead.id);
+                                                if (!dealStatus) {
+                                                    return <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">Disponível</span>;
+                                                }
+                                                if (dealStatus === DealStatus.ABERTA) {
+                                                    return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">Negociação Ativa</span>;
+                                                }
+                                                if (dealStatus === DealStatus.GANHA) {
+                                                    return <span className="bg-green-50 text-green-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-green-100">✓ Sucesso</span>;
+                                                }
+                                                if (dealStatus === DealStatus.PERDIDA) {
+                                                    return <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-red-100">✗ Perda</span>;
+                                                }
+                                                return <span className="bg-slate-100 text-slate-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">Disponível</span>;
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2">
+                                            {!getLeadDealStatus(lead.id) && (
+                                                <button
+                                                    onClick={() => setDealModal({ show: true, lead })}
+                                                    className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg transition-all cursor-pointer border border-amber-200/50"
+                                                    title="Lançar Negociação"
+                                                >
+                                                    <Rocket className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => handleEditLead(lead)}
-                                                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 border border-blue-200/50"
+                                                className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-all cursor-pointer border border-blue-200/50"
                                                 title="Editar Lead"
                                             >
                                                 <Edit2 className="w-4 h-4" />
-                                                Editar
                                             </button>
                                             <button
                                                 onClick={() => {
                                                     const reason = prompt(`Deseja excluir logicamente "${lead.nome_completo}"? Informe o motivo:`);
                                                     if (reason && reason.trim()) deleteLead(lead.id, reason.trim());
                                                 }}
-                                                className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 border border-red-200/50"
+                                                className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all cursor-pointer border border-red-200/50"
                                                 title="Excluir"
                                             >
                                                 <Trash2 className="w-4 h-4" />
-                                                Excluir
                                             </button>
                                         </div>
                                     </td>
@@ -999,8 +1091,8 @@ const LeadsView = () => {
                         <span className="font-black text-lg">{selectedLeads.length} Leads Ativos</span>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setResponsavelModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-white text-slate-900 hover:bg-slate-100 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg flex items-center gap-2"><UserIcon className="w-4 h-4" /> Trocar Responsável</button>
-                        <button onClick={() => setAllocationModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"><Rocket className="w-4 h-4" /> Lançar em Funil</button>
+                        <button disabled={!allSelectedLeadsSameCompany} onClick={() => setResponsavelModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-white text-slate-900 hover:bg-slate-100 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title={!allSelectedLeadsSameCompany ? 'Selecione leads da mesma empresa' : ''}><UserIcon className="w-4 h-4" /> Trocar Responsável</button>
+                        <button disabled={hasLaunchedLeads || !allSelectedLeadsSameCompany} onClick={() => setAllocationModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title={hasLaunchedLeads ? 'Não é possível lançar leads que já estão em um funil' : !allSelectedLeadsSameCompany ? 'Selecione leads da mesma empresa' : ''}><Rocket className="w-4 h-4" /> Lançar em Funil</button>
                         <button onClick={handleBatchDelete} className="btn-liquid-glass bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border border-red-600/20 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Excluir</button>
                         <button onClick={() => setSelectedLeads([])} className="text-slate-400 hover:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer">X</button>
                     </div>
@@ -1019,7 +1111,7 @@ const LeadsView = () => {
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Novo Responsável</label>
                                 <select required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer" value={newResponsavelId} onChange={e => setNewResponsavelId(e.target.value)}>
                                     <option value="">Escolher colaborador...</option>
-                                    {companyUsers.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                                    {massActionUsers.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                                 </select>
                             </div>
                             <div className="flex gap-4 pt-6">
@@ -1043,7 +1135,7 @@ const LeadsView = () => {
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Selecionar Funil</label>
                                 <select required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer" value={selectedPipelineId} onChange={e => { setSelectedPipelineId(e.target.value); setSelectedStageId(''); }}>
                                     <option value="">Escolher pipeline...</option>
-                                    {companyPipelines.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                                    {massActionPipelines.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -1056,6 +1148,56 @@ const LeadsView = () => {
                             <div className="flex gap-4 pt-6">
                                 <button type="button" onClick={() => setAllocationModal({ show: false, leadIds: [] })} className="flex-1 px-4 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
                                 <button type="submit" className="flex-1 btn-liquid-glass bg-blue-600 text-white px-4 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-lg transition-all active:scale-95 cursor-pointer">Lançar Agora</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {dealModal.show && dealModal.lead && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[250] p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in duration-200">
+                        <div className="p-8 bg-amber-600 text-white">
+                            <h3 className="text-xl font-black uppercase tracking-tight">Lançar Negociação</h3>
+                            <p className="text-amber-100 text-xs font-bold mt-1">{dealModal.lead.nome_completo}</p>
+                        </div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (selectedPipelineId && selectedStageId && dealModal.lead) {
+                                await addDeal({
+                                    lead_id: dealModal.lead.id,
+                                    status: DealStatus.ABERTA,
+                                    pipeline_id: selectedPipelineId,
+                                    stage_id: selectedStageId,
+                                    responsavel_id: dealModal.lead.responsavel_id || currentUser?.id || '',
+                                    companyId: dealModal.lead.companyId
+                                });
+                                setDealModal({ show: false, lead: null });
+                                setSelectedPipelineId('');
+                                setSelectedStageId('');
+                            }
+                        }} className="p-10 space-y-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Funil</label>
+                                <select required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-amber-500/10 transition-all font-bold text-slate-900 cursor-pointer" value={selectedPipelineId} onChange={e => { setSelectedPipelineId(e.target.value); setSelectedStageId(''); }}>
+                                    <option value="">Escolher funil...</option>
+                                    {pipelines.filter(p => p.companyId === dealModal.lead?.companyId).map(p => (
+                                        <option key={p.id} value={p.id}>{p.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Etapa Inicial</label>
+                                <select required disabled={!selectedPipelineId} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-amber-500/10 transition-all font-bold text-slate-900 cursor-pointer disabled:opacity-50" value={selectedStageId} onChange={e => setSelectedStageId(e.target.value)}>
+                                    <option value="">Escolher etapa...</option>
+                                    {stages.filter(s => s.pipeline_id === selectedPipelineId).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(s => (
+                                        <option key={s.id} value={s.id}>{s.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex gap-4 pt-6">
+                                <button type="button" onClick={() => { setDealModal({ show: false, lead: null }); setSelectedPipelineId(''); setSelectedStageId(''); }} className="flex-1 px-4 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-colors cursor-pointer">Cancelar</button>
+                                <button type="submit" className="flex-1 btn-liquid-glass bg-amber-600 text-white px-4 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 shadow-lg shadow-amber-600/20 transition-all active:scale-95 cursor-pointer">Lançar Negociação</button>
                             </div>
                         </form>
                     </div>
@@ -1118,32 +1260,32 @@ const LeadsView = () => {
                                 {!editingLeadId && (
                                     <>
                                         <div className="pt-4 col-span-2 border-t border-slate-100">
-                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">Posicionar no Funil de Vendas</p>
+                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-4">Posicionar no Funil de Vendas (Opcional)</p>
                                         </div>
                                         <div>
                                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Funil (Pipeline)</label>
                                             <select
-                                                required
                                                 className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer"
                                                 value={newLead.pipeline_id}
                                                 onChange={e => setNewLead({ ...newLead, pipeline_id: e.target.value, stage_id: '' })}
                                             >
-                                                <option value="">Selecionar Funil...</option>
+                                                <option value="">Nenhum funil selecionado</option>
                                                 {companyPipelines.map(p => (
                                                     <option key={p.id} value={p.id}>{p.nome}</option>
                                                 ))}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Etapa Inicial</label>
+                                            <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1" style={{color: newLead.pipeline_id ? '#dc2626' : '#64748b'}}>Etapa Inicial {newLead.pipeline_id ? '(Obrigatória)' : '(Opcional)'}</label>
                                             <select
-                                                required
                                                 disabled={!newLead.pipeline_id}
-                                                className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer disabled:opacity-50"
+                                                className={`w-full p-4 bg-white border rounded-2xl outline-none focus:ring-4 transition-all font-bold text-slate-900 cursor-pointer disabled:opacity-50 ${
+                                                    newLead.pipeline_id ? 'border-red-300 focus:ring-red-500/10' : 'border-slate-200 focus:ring-blue-500/10'
+                                                }`}
                                                 value={newLead.stage_id}
                                                 onChange={e => setNewLead({ ...newLead, stage_id: e.target.value })}
                                             >
-                                                <option value="">Selecionar Etapa...</option>
+                                                <option value="">Nenhuma etapa selecionada</option>
                                                 {availableStagesForNewLead.map(s => (
                                                     <option key={s.id} value={s.id}>{s.nome}</option>
                                                 ))}
@@ -1167,7 +1309,7 @@ const LeadsView = () => {
                                 )}
                             </div>
                             <button type="submit" className="w-full btn-liquid-glass bg-blue-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl active:scale-95 cursor-pointer mt-4">
-                                {editingLeadId ? 'Salvar Alterações' : 'Cadastrar Lead e Lançar no Funil'}
+                                {editingLeadId ? 'Salvar Alterações' : (newLead.pipeline_id ? 'Cadastrar Lead e Lançar no Funil' : 'Cadastrar Lead')}
                             </button>
                         </form>
                     </div>
