@@ -176,7 +176,6 @@ export interface Task {
     titulo: string;
     tipo: TaskType;
     data_hora: string;
-    responsavel_id: string;
     status: TaskStatus;
 }
 

@@ -13,11 +13,12 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
     const { currentUser, currentCompany, logout, tasks, isLoading } = useCRM();
 
-    // Ajuste: O Backend não tem tarefas integradas globalmente ainda, então protegemos com ?.
-    const userTasksCount = tasks?.filter(t =>
-        String(t.responsavel_id) === String(currentUser?.id) &&
-        t.status === TaskStatus.PENDENTE
-    ).length || 0;
+    // Conta tarefas pendentes do usuário (proprietario vê todas, outros veem da sua empresa)
+    const userTasksCount = tasks?.filter(t => {
+        if (t.status !== TaskStatus.PENDENTE) return false;
+        if (currentUser?.role === 'proprietario') return true;
+        return t.companyId === currentUser?.companyId;
+    }).length || 0;
 
     // Mapeamento de permissões baseado no array 'acessos' do Backend
     const checkPermission = (perm: string | undefined) => {

@@ -94,11 +94,11 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
         setNewNote('');
     };
 
-    const handleAddTask = (e: React.FormEvent) => {
+    const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!hasPermission) return;
         if (!newTask.titulo.trim()) return;
-        addTask({ deal_id: String(dealId), titulo: newTask.titulo, tipo: newTask.tipo, data_hora: newTask.data_hora, responsavel_id: currentUser?.id || 'system' });
+        await addTask({ deal_id: String(dealId), titulo: newTask.titulo, tipo: newTask.tipo, data_hora: newTask.data_hora });
         setNewTask({ titulo: '', tipo: TaskType.LIGACAO, data_hora: new Date().toISOString().slice(0, 16) });
         setShowTaskForm(false);
     };
