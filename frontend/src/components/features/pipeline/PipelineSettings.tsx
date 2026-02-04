@@ -50,20 +50,28 @@ const PipelineSettings: React.FC = () => {
         }
     }, [isProprietario, currentCompany?.id, currentUser?.companyId, selectedCompanyId]);
 
-    // Carrega funis da empresa selecionada quando muda
+    // Carrega funis quando selectedCompanyId muda
     React.useEffect(() => {
-        if (isProprietario && activeCompanyId) {
-            loadPipelinesForCompany(activeCompanyId);
+        if (isProprietario) {
+            if (selectedCompanyId) {
+                // Carrega funis da empresa específica
+                loadPipelinesForCompany(selectedCompanyId);
+            } else {
+                // Carrega TODOS os funis (rota sem parâmetro)
+                loadPipelinesForCompany('all');
+            }
         }
-    }, [isProprietario, activeCompanyId, loadPipelinesForCompany]);
+    }, [isProprietario, selectedCompanyId, loadPipelinesForCompany]);
 
-    // Filtro de Funis
+    // Filtro de Funis - mostra tudo se selectedCompanyId vazio, senão filtra por empresa
     const companyPipelines = useMemo(() =>
-        pipelines.filter(p => {
-            const belongsToCompany = p.companyId === activeCompanyId;
-            return belongsToCompany;
-        }),
-        [pipelines, activeCompanyId]
+        selectedCompanyId === '' 
+            ? pipelines // Mostra todos quando "Todas as empresas" selecionado
+            : pipelines.filter(p => {
+                const belongsToCompany = p.companyId === activeCompanyId;
+                return belongsToCompany;
+            }),
+        [pipelines, activeCompanyId, selectedCompanyId]
     );
 
     const selectedPipeline = useMemo(() =>
@@ -157,13 +165,13 @@ const PipelineSettings: React.FC = () => {
                                 value={selectedCompanyId}
                                 onChange={(e) => setSelectedCompanyId(e.target.value)}
                                 style={{
-                                    backgroundColor: selectedCompanyObj?.cor_destaque ? `${selectedCompanyObj.cor_destaque}20` : '#f0f0f0',
-                                    borderColor: selectedCompanyObj?.cor_destaque || '#e5e7eb',
-                                    color: selectedCompanyObj?.cor_destaque || '#6b7280'
+                                    backgroundColor: selectedCompanyId === '' ? '#f0f0f0' : (selectedCompanyObj?.cor_destaque ? `${selectedCompanyObj.cor_destaque}20` : '#f0f0f0'),
+                                    borderColor: selectedCompanyId === '' ? '#e5e7eb' : (selectedCompanyObj?.cor_destaque || '#e5e7eb'),
+                                    color: selectedCompanyId === '' ? '#6b7280' : (selectedCompanyObj?.cor_destaque || '#6b7280')
                                 }}
                                 className="p-3 rounded-xl border-2 font-bold text-sm focus:outline-none focus:ring-2 transition-all cursor-pointer min-w-xs"
                             >
-                                <option value="">Selecione uma empresa...</option>
+                                <option value="">Todas as empresas</option>
                                 {companies.map(company => (
                                     <option key={company.id} value={company.id}>
                                         {company.nome}
@@ -205,7 +213,7 @@ const PipelineSettings: React.FC = () => {
                         <form onSubmit={handleConfirmAddPipeline} className="p-8 rounded-[40px] border-2 border-dashed border-blue-400 bg-blue-50/20 flex flex-col justify-center animate-in zoom-in duration-200"><input autoFocus className="bg-white p-4 rounded-xl border border-blue-200 font-bold mb-4 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="Ex: Novos Clientes..." value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} /><div className="flex gap-2"><button type="submit" className="flex-1 bg-blue-600 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest cursor-pointer active:scale-95 transition-transform">Confirmar Criação</button><button type="button" onClick={() => setIsAddingPipeline(false)} className="px-4 bg-white text-slate-500 border border-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-pointer"><X className="w-4 h-4" /></button></div></form>
                     )}
                     {!isAddingPipeline && canEdit && (
-                        <button type="button" onClick={() => setIsAddingPipeline(true)} className="p-8 border-2 border-dashed border-slate-200 rounded-[40px] text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/20 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"><Plus className="w-8 h-8 group-hover:scale-125 transition-transform" /><span className="font-black text-xs uppercase tracking-widest">Novo Funil</span></button>
+                        <button type="button" onClick={() => setIsAddingPipeline(true)} disabled={selectedCompanyId === ''} title={selectedCompanyId === '' ? 'Selecione uma empresa específica para criar novo funil' : ''} className="p-8 border-2 border-dashed border-slate-200 rounded-[40px] text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/20 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-400"><Plus className="w-8 h-8 group-hover:scale-125 transition-transform" /><span className="font-black text-xs uppercase tracking-widest">Novo Funil</span></button>
                     )}
                 </div>
             </section>

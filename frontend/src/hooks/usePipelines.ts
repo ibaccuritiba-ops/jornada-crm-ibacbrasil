@@ -28,6 +28,27 @@ export const usePipelines = (): UsePipelinesReturn => {
     const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
     const authFetch = useAuthFetch();
 
+    const loadPipelinesForCompany = useCallback(async (empresaId: string) => {
+        if (!authFetch) return;
+        
+        try {
+            // Se empresaId é 'all', chama /funil/ para pegar todos, senão chama /funil/:id
+            const url = empresaId === 'all' ? '/funil' : `/funil/${empresaId}`;
+            console.log('[loadPipelinesForCompany] Chamando URL:', url);
+            const res = await authFetch(url);
+            console.log('[loadPipelinesForCompany] Resposta:', res?.status);
+            if (res?.ok) {
+                const data = await res.json();
+                console.log('[loadPipelinesForCompany] Dados recebidos:', data.data);
+                const mappedFunis = mapFunilToFront(data.data);
+                console.log('[loadPipelinesForCompany] Mapeado:', mappedFunis);
+                setPipelines(mappedFunis);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar funis:', error);
+        }
+    }, [authFetch]);
+
     const addPipeline = useCallback(async (nome: string, empresaId?: string) => {
         if (!authFetch) return;
         
@@ -36,18 +57,11 @@ export const usePipelines = (): UsePipelinesReturn => {
             body: JSON.stringify({ nome, empresa: empresaId })
         });
 
-        if (res?.ok) {
-            const data = await res.json();
-            const newFunil = { 
-                id: data.data._id,
-                nome: data.data.nome,
-                companyId: data.data.empresa,
-                criado_em: data.data.createdAt,
-                atualizado_em: data.data.updatedAt
-            };
-            setPipelines(prev => [...prev, newFunil]);
+        if (res?.ok && empresaId) {
+            // Recarrega funis da empresa após sucesso
+            setTimeout(() => loadPipelinesForCompany(empresaId), 300);
         }
-    }, [authFetch]);
+    }, [authFetch, loadPipelinesForCompany]);
 
     const updatePipeline = useCallback(async (id: string, nome: string) => {
         if (!authFetch) return;
@@ -64,21 +78,6 @@ export const usePipelines = (): UsePipelinesReturn => {
         
         await authFetch(`/funil/delete/${id}`, { method: 'DELETE' });
         setPipelines(prev => prev.filter(p => p.id !== id));
-    }, [authFetch]);
-
-    const loadPipelinesForCompany = useCallback(async (empresaId: string) => {
-        if (!authFetch) return;
-        
-        try {
-            const res = await authFetch(`/funil/${empresaId}`);
-            if (res?.ok) {
-                const data = await res.json();
-                const mappedFunis = mapFunilToFront(data.data);
-                setPipelines(mappedFunis);
-            }
-        } catch (error) {
-            console.error('Erro ao carregar funis da empresa:', error);
-        }
     }, [authFetch]);
 
     const loadStagesForPipeline = useCallback(async (pipelineId: string) => {
@@ -105,11 +104,10 @@ export const usePipelines = (): UsePipelinesReturn => {
         });
 
         if (res?.ok) {
-            const data = await res.json();
-            const newStage = mapEtapaToFront(data.data);
-            setStages(prev => [...prev, ...newStage]);
+            // Recarrega etapas do funil após sucesso
+            setTimeout(() => loadStagesForPipeline(pipelineId), 300);
         }
-    }, [authFetch]);
+    }, [authFetch, loadStagesForPipeline]);
 
     const updateStage = useCallback(async (id: string, nome: string) => {
         if (!authFetch) return;

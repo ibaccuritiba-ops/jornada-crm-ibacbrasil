@@ -342,32 +342,54 @@ const Kanban: React.FC = () => {
         return companies.find(c => c.id === selectedCompanyId);
     }, [companies, selectedCompanyId]);
 
-    // Carrega funis, etapas e negociações quando o proprietário muda de empresa
+    // Sincroniza selectedCompanyId quando currentCompany ou companies mudam
     useEffect(() => {
-        if (isProprietario && selectedCompanyId) {
-            loadPipelinesForCompany(selectedCompanyId);
-            loadDealsForCompany(selectedCompanyId);
-            setActivePipelineId(''); // Reseta o funil ativo para recarregar
+        if (!selectedCompanyId) {
+            // Proprietário: usar primeira empresa disponível
+            if (isProprietario && companies.length > 0) {
+                console.log('👤 Proprietário detectado, selecionando primeira empresa:', companies[0].id);
+                setSelectedCompanyId(companies[0].id);
+            }
+            // Não-proprietário: usar currentCompany
+            else if (!isProprietario && currentCompany?.id) {
+                console.log('👤 Não-proprietário, selecionando empresa atual:', currentCompany.id);
+                setSelectedCompanyId(currentCompany.id);
+            }
         }
-    }, [selectedCompanyId, isProprietario, loadPipelinesForCompany, loadDealsForCompany, setActivePipelineId]);
+    }, [companies, currentCompany?.id, isProprietario, selectedCompanyId]);
+
+    // Carrega dados quando company ID muda
+    useEffect(() => {
+        const companyIdToLoad = isProprietario ? selectedCompanyId : currentCompany?.id;
+        console.log('🔄 Carregando dados do pipeline:', { companyIdToLoad, isProprietario, pipelines: pipelines.length });
+        if (companyIdToLoad) {
+            loadPipelinesForCompany(companyIdToLoad);
+            loadDealsForCompany(companyIdToLoad);
+        }
+    }, [selectedCompanyId, currentCompany?.id, isProprietario, loadPipelinesForCompany, loadDealsForCompany]);
 
     // Carrega etapas quando o funil ativo muda
     useEffect(() => {
         if (activePipelineId) {
+            console.log('📋 Carregando etapas para funil:', activePipelineId);
             loadStagesForPipeline(activePipelineId);
         }
     }, [activePipelineId, loadStagesForPipeline]);
 
     const availablePipelines = useMemo(() => {
-        const companyToFilter = isProprietario ? selectedCompanyId : getSafeId(currentCompany?.id);
-        return pipelines.filter(p => {
+        const companyToFilter = isProprietario ? selectedCompanyId : currentCompany?.id;
+        const filtered = pipelines.filter(p => {
             const belongsToCompany = (getSafeId(p.companyId) || getSafeId(p.empresa)) === companyToFilter;
             return belongsToCompany;
         });
-    }, [pipelines, currentCompany, selectedCompanyId, isProprietario]);
+        console.log('📊 Pipelines disponíveis:', { companyToFilter, total: pipelines.length, filtered: filtered.length });
+        return filtered;
+    }, [pipelines, currentCompany?.id, selectedCompanyId, isProprietario]);
 
+    // Auto-seleciona o primeiro funil quando os dados carregam
     useEffect(() => {
-        if ((!activePipelineId || activePipelineId === '') && availablePipelines.length > 0) {
+        if (!activePipelineId && availablePipelines.length > 0) {
+            console.log('✅ Auto-selecionando primeiro funil:', availablePipelines[0].id);
             setActivePipelineId(availablePipelines[0].id);
         }
     }, [activePipelineId, availablePipelines, setActivePipelineId]);
