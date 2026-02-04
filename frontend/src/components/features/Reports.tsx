@@ -1,15 +1,26 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCRM } from '../../store';
 import { UserProfile, DealStatus } from '../../types';
 import { exportToCSV } from '../../App';
+import { Download } from 'lucide-react';
 
 const Reports: React.FC = () => {
-    const { leads, deals, dealProducts, products, currentUser } = useCRM();
+    const { leads, deals, dealProducts, products, currentUser, companies, currentCompany } = useCRM();
     const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('month');
     const [filterProductId, setFilterProductId] = useState<string>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+    const isProprietario = currentUser?.role === 'proprietario';
+
+    // NÃO inicializa selectedCompanyId - deixa vazio (padrão é "Todas as Empresas")
+
+    // Reset filtro de produto quando empresa muda
+    useEffect(() => {
+        setFilterProductId('all');
+    }, [selectedCompanyId]);
 
     const filterByPeriod = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -35,31 +46,33 @@ const Reports: React.FC = () => {
     };
 
     const stats = useMemo(() => {
-        const cid = currentUser?.companyId;
-        const fLeads = leads.filter(l => !l.deletado && filterByPeriod(l.criado_em) && l.companyId === cid);
-        const fDeals = deals.filter(d => filterByPeriod(d.criado_em) && d.companyId === cid);
+        const cid = selectedCompanyId;
+        const pid = filterProductId;
+
+        // Filtro base por período e empresa
+        const fLeads = leads.filter(l => !l.deletado && filterByPeriod(l.criado_em) && (cid === '' || l.companyId === cid));
+        let fDeals = deals.filter(d => filterByPeriod(d.criado_em) && (cid === '' || d.companyId === cid));
+
+        // Aplica filtro de produto se selecionado
+        if (pid !== 'all') {
+            const dealsWithProduct = dealProducts
+                .filter(dp => String(dp.product_id) === pid)
+                .map(dp => String(dp.deal_id));
+            fDeals = fDeals.filter(d => dealsWithProduct.includes(String(d.id)));
+        }
 
         let filteredWonDeals = fDeals.filter(d => d.status === DealStatus.GANHA);
         let filteredLostDeals = fDeals.filter(d => d.status === DealStatus.PERDIDA);
-
-        if (filterProductId !== 'all') {
-            filteredWonDeals = filteredWonDeals.filter(d =>
-                dealProducts.some(dp => String(dp.deal_id) === String(d.id) && String(dp.product_id) === filterProductId)
-            );
-            filteredLostDeals = filteredLostDeals.filter(d =>
-                dealProducts.some(dp => String(dp.deal_id) === String(d.id) && String(dp.product_id) === filterProductId)
-            );
-        }
 
         const wonIds = new Set(filteredWonDeals.map(d => String(d.id)));
         const lostIds = new Set(filteredLostDeals.map(d => String(d.id)));
 
         const totalRevenue = dealProducts
-            .filter(dp => wonIds.has(String(dp.deal_id)) && (filterProductId === 'all' || String(dp.product_id) === filterProductId))
+            .filter(dp => wonIds.has(String(dp.deal_id)) && (pid === 'all' || String(dp.product_id) === pid))
             .reduce((acc, curr) => acc + Number(curr.valor), 0);
 
         const totalLostRevenue = dealProducts
-            .filter(dp => lostIds.has(String(dp.deal_id)) && (filterProductId === 'all' || String(dp.product_id) === filterProductId))
+            .filter(dp => lostIds.has(String(dp.deal_id)) && (pid === 'all' || String(dp.product_id) === pid))
             .reduce((acc, curr) => acc + Number(curr.valor), 0);
 
         const conversion = fDeals.length > 0 ? (filteredWonDeals.length / fDeals.length) * 100 : 0;
@@ -74,7 +87,7 @@ const Reports: React.FC = () => {
             conversion,
             wonDeals: filteredWonDeals
         };
-    }, [leads, deals, dealProducts, period, currentUser, filterProductId, startDate, endDate]);
+    }, [leads, deals, dealProducts, products, period, selectedCompanyId, filterProductId, startDate, endDate]);
 
     const handleExportReport = () => {
         const dataToExport = stats.wonDeals.map(d => {
@@ -108,12 +121,27 @@ const Reports: React.FC = () => {
                         onClick={handleExportReport}
                         className="btn-liquid-glass bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
                     >
-                        📥 Extrair Resultados
+                        <Download className="w-4 h-4" /> Extrair Resultados
                     </button>
                 </div>
 
                 <div className="flex flex-col gap-6 pt-4 border-t border-slate-50">
                     <div className="flex flex-wrap gap-4 items-end">
+                        {isProprietario && (
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Empresa</label>
+                                <select
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-xs outline-none focus:border-blue-300"
+                                    value={selectedCompanyId}
+                                    onChange={e => setSelectedCompanyId(e.target.value)}
+                                >
+                                    <option value="">Todas as Empresas</option>
+                                    {companies.filter(c => !c.deletado).map(c => (
+                                        <option key={c.id} value={c.id}>{c.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Intervalo de Datas</label>
                             <div className="flex bg-slate-100 p-1 rounded-2xl">
@@ -143,9 +171,11 @@ const Reports: React.FC = () => {
                                 onChange={e => setFilterProductId(e.target.value)}
                             >
                                 <option value="all">Todos os Produtos</option>
-                                {products.filter(p => !p.deletado).map(p => (
-                                    <option key={p.id} value={p.id}>{p.nome}</option>
-                                ))}
+                                {products
+                                    .filter(p => !p.deletado && (selectedCompanyId === '' || p.companyId === selectedCompanyId))
+                                    .map(p => (
+                                        <option key={p.id} value={p.id}>{p.nome}</option>
+                                    ))}
                             </select>
                         </div>
                     </div>

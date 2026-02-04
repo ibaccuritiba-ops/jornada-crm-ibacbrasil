@@ -12,20 +12,20 @@ export enum PersonType {
 }
 
 export enum DealStatus {
-    ABERTA = 'ABERTA',
-    GANHA = 'GANHA',
-    PERDIDA = 'PERDIDA'
+    ABERTA = 'aberta',
+    GANHA = 'ganha',
+    PERDIDA = 'perdida'
 }
 
 export enum TaskType {
-    LIGACAO = 'LIGACAO',
-    WHATSAPP = 'WHATSAPP',
-    EMAIL = 'EMAIL'
+    LIGACAO = 'ligacao',
+    WHATSAPP = 'whatsapp',
+    EMAIL = 'email'
 }
 
 export enum TaskStatus {
-    PENDENTE = 'PENDENTE',
-    CONCLUIDA = 'CONCLUIDA'
+    PENDENTE = 'pendente',
+    CONCLUIDA = 'concluida'
 }
 
 export enum EventType {
@@ -54,16 +54,11 @@ export interface UserPermissions {
 export interface Company {
     id: string;
     nome: string;
-    documento?: string;
+    cnpj?: string;
     logo_url?: string;
-    cor_primaria: string;
-    cor_secundaria: string;
-    cor_terciaria: string;
+    cor_principal: string;
+    cor_destaque: string;
     ativa: boolean;
-    criado_em: string;
-    deletado?: boolean;
-    motivo_exclusao?: string;
-    data_exclusao?: string;
 }
 
 export interface User {
@@ -72,10 +67,11 @@ export interface User {
     nome: string;
     email: string;
     senha?: string;
-    role: string; // 'proprietario' | 'supervisor' | 'vendedor'
+    role: string;
     ativo?: boolean;
     acesso_confirmado?: boolean;
-    acessos?: string[]; // array de permissões
+    acessos?: string[];
+    permissions?: UserPermissions;
     criado_em?: string;
     atualizado_em?: string;
 }
@@ -132,9 +128,13 @@ export interface Deal {
     pipeline_id: string;
     stage_id: string;
     responsavel_id: string;
+    nome: string;
+    valor_total: number;
+    desconto: number;
     status: DealStatus;
     criado_em: string;
     atualizado_em: string;
+    deletado?: boolean;
 }
 
 export interface Product {
@@ -183,8 +183,77 @@ export interface Task {
 export interface DealEvent {
     id: string;
     deal_id: string;
-    tipo_evento: EventType;
-    descricao: string;
+    type?: EventType;
+    tipo_evento?: EventType;
+    description?: string;
+    descricao?: string;
     criado_em: string;
-    autor_id: string;
+    autor_id?: string;
+    criado_por?: string;
+}
+
+// Context Type
+export interface CRMContextType {
+    companies: Company[];
+    users: User[];
+    leads: Lead[];
+    pipelines: Pipeline[];
+    stages: PipelineStage[];
+    deals: Deal[];
+    events: DealEvent[];
+    tasks: Task[];
+    products: Product[];
+    dealProducts: DealProduct[];
+    notifications: Notification[];
+    currentUser: User | null;
+    currentCompany: Company | null;
+    activePipelineId: string | null;
+    isLoading?: boolean;
+
+    setActivePipelineId: (id: string) => void;
+    login: (email: string, pass: string) => Promise<boolean>;
+    logout: () => void;
+    addCompany: (company: Omit<Company, 'id'>, adminData?: { email: string; senha: string; nome: string }) => Promise<void>;
+    updateCompany: (company: Company) => Promise<void>;
+    deleteCompany: (id: string, reason: string) => Promise<void>;
+    addLead: (lead: Omit<Lead, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'> & { funilId?: string; etapaId?: string; produto?: string }) => Promise<{ success: boolean; error?: string; lead?: Lead }>;
+    updateLead: (lead: Lead) => Promise<void>;
+    deleteLead: (leadId: string, reason: string) => Promise<void>;
+    restoreLead: (leadId: string) => void;
+    batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
+    importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute'; userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
+    syncLeadsFromFluent: (config: { tags?: string[]; lists?: string[] }) => { imported: number; updated: number };
+    updateLeadClassificacao: (leadId: string, classificacao: number) => void;
+    addPipeline: (nome: string, empresaId?: string) => Promise<void>;
+    loadPipelinesForCompany: (empresaId: string) => Promise<void>;
+    loadStagesForPipeline: (pipelineId: string) => Promise<void>;
+    loadTasksForCompany: (empresaId: string) => Promise<void>;
+    updatePipeline: (id: string, nome: string) => Promise<void>;
+    deletePipeline: (id: string, justification?: string) => Promise<void>;
+    addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
+    moveDeal: (dealId: string, stageId: string) => Promise<void>;
+    updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage'; value: number }) => void;
+    updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;
+    addEvent: (dealId: string, type: EventType, description: string) => void;
+    loadDealsForCompany: (empresaId: string) => Promise<void>;
+    addDealProduct: (dealId: string, productId: string) => void;
+    deleteDealProduct: (dealProductId: string) => void;
+    addTask: (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => void;
+    updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+    deleteTask: (taskId: string) => void;
+    addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => Promise<void>;
+    deleteUser: (userId: string) => void;
+    changeUserPassword: (userId: string, newPass: string) => Promise<void>;
+    resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
+    updateUser: (user: User) => void;
+    updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
+    addStage: (pipelineId: string, nome: string) => Promise<void>;
+    deleteStage: (id: string, justification?: string) => void;
+    updateStage: (id: string, nome: string) => Promise<void>;
+    reorderStages: (newStages: PipelineStage[]) => Promise<void>;
+    addProduct: (product: Omit<Product, 'id' | 'companyId'>) => void;
+    updateProduct: (product: Product) => void;
+    deleteProduct: (id: string, justification?: string) => void;
+    approveNotification: (id: string) => void;
+    rejectNotification: (id: string) => void;
 }

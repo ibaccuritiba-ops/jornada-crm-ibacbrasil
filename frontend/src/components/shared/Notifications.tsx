@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { User, Target, Box, Building2, Clock, Check, X, Shield } from 'lucide-react';
 import { useCRM } from '../../store';
 
 const Notifications: React.FC = () => {
@@ -15,7 +16,7 @@ const Notifications: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-20">
             <div className="bg-amber-50 border border-amber-200 p-8 rounded-[40px] flex items-center gap-6">
-                <span className="text-4xl">🛡️</span>
+                <Shield className="w-10 h-10 text-amber-700" />
                 <div>
                     <h2 className="text-2xl font-black text-amber-900 tracking-tight">Centro de Governança</h2>
                     <p className="text-amber-700/80 font-medium">Revise e aprove solicitações de exclusão enviadas pelo time.</p>
@@ -26,8 +27,8 @@ const Notifications: React.FC = () => {
                 {notifications.map(n => (
                     <div key={n.id} className="bg-white p-8 rounded-[30px] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 hover:border-blue-300 transition-all group">
                         <div className="flex items-center gap-6 flex-1">
-                            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl border border-slate-100 group-hover:bg-blue-50 transition-colors">
-                                {n.type === 'LEAD' ? '👤' : n.type === 'PIPELINE' ? '🎯' : n.type === 'PRODUCT' ? '📦' : '🏗️'}
+                            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-blue-50 transition-colors text-blue-600">
+                                {n.type === 'LEAD' ? <User className="w-6 h-6" /> : n.type === 'PIPELINE' ? <Target className="w-6 h-6" /> : n.type === 'PRODUCT' ? <Box className="w-6 h-6" /> : <Building2 className="w-6 h-6" />}
                             </div>
                             <div className="flex-1">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Solicitado por {n.userName}</p>
@@ -37,22 +38,22 @@ const Notifications: React.FC = () => {
                                 <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-100 italic text-xs text-slate-600">
                                     " {n.justificativa} "
                                 </div>
-                                <p className="text-[9px] text-slate-400 font-bold mt-2">🕒 {new Date(n.criado_em).toLocaleString('pt-BR')}</p>
+                                <p className="text-[9px] text-slate-400 font-bold mt-2 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(n.criado_em).toLocaleString('pt-BR')}</p>
                             </div>
                         </div>
 
                         <div className="flex gap-3 shrink-0">
                             <button
                                 onClick={() => approveNotification(n.id)}
-                                className="bg-emerald-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95"
+                                className="bg-emerald-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95 flex items-center gap-2"
                             >
-                                ✓ Aprovar
+                                <Check className="w-4 h-4" /> Aprovar
                             </button>
                             <button
                                 onClick={() => rejectNotification(n.id)}
-                                className="bg-slate-100 text-slate-500 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all cursor-pointer active:scale-95"
+                                className="bg-slate-100 text-slate-500 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
                             >
-                                ✕ Negar
+                                <X className="w-4 h-4" /> Negar
                             </button>
                         </div>
                     </div>

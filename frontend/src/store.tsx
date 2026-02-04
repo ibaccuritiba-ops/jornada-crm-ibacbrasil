@@ -1,182 +1,55 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import CryptoJS from 'crypto-js'; // Importação adicionada
-import {
-    User, UserProfile, Lead, Pipeline, PipelineStage, Company,
-    Deal, DealStatus, DealEvent, EventType, Task, TaskType, TaskStatus, Product, DealProduct, UserPermissions, Notification, PersonType
-} from './types';
-import { SECRET, SALT, API_URL } from './env';
-
-interface CRMContextType {
-    companies: Company[];
-    users: User[];
-    leads: Lead[];
-    pipelines: Pipeline[];
-    stages: PipelineStage[];
-    deals: Deal[];
-    events: DealEvent[];
-    tasks: Task[];
-    products: Product[];
-    dealProducts: DealProduct[];
-    notifications: Notification[];
-    currentUser: User | null;
-    currentCompany: Company | null;
-    activePipelineId: string | null;
-    setActivePipelineId: (id: string) => void;
-    login: (email: string, pass: string) => Promise<boolean>;
-    logout: () => void;
-    addCompany: (company: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => Promise<void>;
-    updateCompany: (company: Company) => Promise<void>;
-    deleteCompany: (id: string, reason: string) => Promise<void>;
-    addLead: (lead: Omit<Lead, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'> & { funilId?: string, etapaId?: string, produto?: string }) => Promise<{ success: boolean; error?: string; lead?: Lead }>;
-    updateLead: (lead: Lead) => Promise<void>;
-    deleteLead: (leadId: string, reason: string) => Promise<void>;
-    restoreLead: (leadId: string) => void;
-    batchUpdateLeadResponsavel: (leadIds: string[], responsavelId: string) => void;
-    importLeads: (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => { imported: number; failed: { row: number; reason: string }[] };
-    syncLeadsFromFluent: (config: { tags?: string[]; lists?: string[] }) => { imported: number; updated: number };
-    updateLeadClassificacao: (leadId: string, classificacao: number) => void;
-    addPipeline: (nome: string) => Promise<void>;
-    updatePipeline: (id: string, nome: string) => Promise<void>;
-    deletePipeline: (id: string, justification?: string) => Promise<void>;
-    addDeal: (dealData: Omit<Deal, 'id' | 'companyId' | 'criado_em' | 'atualizado_em'>) => { success: boolean; deal?: Deal; error?: string };
-    moveDeal: (dealId: string, stageId: string) => Promise<void>;
-    updateDealStatus: (dealId: string, status: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => void;
-    updateDealResponsavel: (dealId: string, newResponsavelId: string) => void;
-    addEvent: (dealId: string, type: EventType, description: string) => void;
-    addDealProduct: (dealId: string, productId: string) => void;
-    deleteDealProduct: (dealProductId: string) => void;
-    addTask: (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => void;
-    updateTaskStatus: (taskId: string, status: TaskStatus) => void;
-    deleteTask: (taskId: string) => void;
-    addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => Promise<void>;
-    deleteUser: (userId: string) => void;
-    changeUserPassword: (userId: string, newPass: string) => Promise<void>;
-    resetPassword: (email: string, newPass: string) => { success: boolean; message: string };
-    updateUser: (user: User) => void;
-    updateUserPermissions: (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => void;
-    addStage: (pipelineId: string, nome: string) => Promise<void>;
-    deleteStage: (id: string, justification?: string) => void;
-    updateStage: (id: string, nome: string) => Promise<void>;
-    reorderStages: (newStages: PipelineStage[]) => Promise<void>;
-    addProduct: (product: Omit<Product, 'id' | 'companyId'>) => void;
-    updateProduct: (product: Product) => void;
-    deleteProduct: (id: string, justification?: string) => void;
-    approveNotification: (id: string) => void;
-    rejectNotification: (id: string) => void;
-}
+// Store refatorado - Orquestrador leve que combine todos os hooks
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { mapMongoToFront, mapFunilToFront, mapEtapaToFront } from './utils/mappers';
+import { createAuthFetch, encryptPassword } from './utils/helpers';
+import { useAuth } from './hooks/useAuth';
+import { useCompanies } from './hooks/useCompanies';
+import { usePipelines } from './hooks/usePipelines';
+import { useTasks } from './hooks/useTasks';
+import { useLeads } from './hooks/useLeads';
+import { useDeals } from './hooks/useDeals';
+import { useProducts } from './hooks/useProducts';
+import { useUsers } from './hooks/useUsers';
+import { useNotifications } from './hooks/useNotifications';
+import { CRMContextType } from './types';
+import { API_URL } from './env';
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
-const mapMongoToFront = (data: any) => {
-    if (!data) return data;
-    if (Array.isArray(data)) return data.map(item => ({ ...item, id: item._id }));
-    return { ...data, id: data._id };
-};
-
-// Função para mapear funis com campos padrão
-const mapFunilToFront = (data: any): any[] => {
-    if (Array.isArray(data)) {
-        return data.map(funil => {
-            const empresaId = typeof funil.empresa === 'object' ? funil.empresa?._id : funil.empresa;
-            return {
-                id: funil._id,
-                nome: funil.nome,
-                companyId: empresaId,
-                criado_em: funil.createdAt,
-                atualizado_em: funil.updatedAt
-            };
-        });
-    }
-    const empresaId = typeof data.empresa === 'object' ? data.empresa?._id : data.empresa;
-    return [{ 
-        id: data._id, 
-        nome: data.nome,
-        companyId: empresaId,
-        criado_em: data.createdAt,
-        atualizado_em: data.updatedAt
-    }];
-};
-
-// Função para mapear etapas com campos padrão
-const mapEtapaToFront = (data: any) => {
-    if (Array.isArray(data)) {
-        return data.map(etapa => {
-            const funilId = typeof etapa.funil === 'object' ? etapa.funil?._id : etapa.funil;
-            return {
-                id: etapa._id,
-                nome: etapa.nome,
-                ordem: etapa.ordem !== undefined ? etapa.ordem : 0,
-                funil: funilId,
-                pipeline_id: funilId, // Alias para compatibilidade
-                criado_em: etapa.createdAt,
-                atualizado_em: etapa.updatedAt
-            };
-        });
-    }
-    const funilId = typeof data.funil === 'object' ? data.funil?._id : data.funil;
-    return { 
-        id: data._id, 
-        nome: data.nome,
-        ordem: data.ordem !== undefined ? data.ordem : 0,
-        funil: funilId,
-        pipeline_id: funilId,
-        criado_em: data.createdAt,
-        atualizado_em: data.updatedAt
-    };
-};
-
-// Função auxiliar de criptografia para manter padrão
-const encryptPassword = (password: string) => {
-    return CryptoJS.AES.encrypt(password + SALT, SECRET).toString();
-};
-
 export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [companies, setCompanies] = useState<Company[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [currentUser, setCurrentUser] = useState<User | null>(() => {
-        const saved = localStorage.getItem('crm_current_user');
-        return saved ? JSON.parse(saved) : null;
-    });
+    // Hooks individuais
+    const { currentUser, setCurrentUser, login, logout, resetPassword } = useAuth();
+    const { companies, setCompanies, addCompany, updateCompany, deleteCompany } = useCompanies();
+    const { pipelines, stages, activePipelineId, setPipelines, setStages, setActivePipelineId, addPipeline, updatePipeline, deletePipeline, loadPipelinesForCompany, loadStagesForPipeline, addStage, updateStage, deleteStage, reorderStages } = usePipelines();
+    const { tasks, setTasks, addTask, updateTaskStatus, deleteTask, loadTasksForCompany } = useTasks();
+    const { leads, setLeads, addLead, updateLead, deleteLead, restoreLead, permanentlyDeleteLead, updateLeadClassificacao, batchUpdateLeadResponsavel, importLeads } = useLeads();
+    const { deals, events, setDeals, setEvents, moveDeal, updateDealStatus, updateDealResponsavel, addEvent, addDeal, loadDealsForCompany } = useDeals();
+    const { products, dealProducts, setProducts, setDealProducts, addProduct, updateProduct, deleteProduct, addDealProduct, deleteDealProduct } = useProducts();
+    const { users, setUsers, addUser, updateUser, deleteUser, changeUserPassword, updateUserPermissions } = useUsers();
+    const { notifications, setNotifications, approveNotification, rejectNotification } = useNotifications();
 
-    const [pipelines, setPipelines] = useState<Pipeline[]>([]);
-    const [stages, setStages] = useState<PipelineStage[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [leads, setLeads] = useState<Lead[]>([]);
-    const [deals, setDeals] = useState<Deal[]>([]);
-    const [events, setEvents] = useState<DealEvent[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [dealProducts, setDealProducts] = useState<DealProduct[]>([]);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    // Estado local do provider
     const [isLoading, setIsLoading] = useState(true);
-
-    const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
-
     const token = localStorage.getItem('token');
+    const authFetch = useMemo(() => createAuthFetch(token), [token]);
 
-    const authFetch = async (endpoint: string, options: RequestInit = {}) => {
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `${token}` : '',
-            ...options.headers,
-        };
-        const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-        if (response.status === 401) {
-            logout();
-            return null;
-        }
-        return response;
-    };
+    // currentCompany memoizado
+    const currentCompany = useMemo(() => {
+        if (!currentUser) return null;
+        return companies.find(c => c.id === currentUser.companyId) || null;
+    }, [companies, currentUser]);
 
-    const fetchInitialData = async () => {
-        if (!currentUser || !currentUser.companyId) return;
+    // Fetch inicial de dados
+    const fetchInitialData = useCallback(async () => {
+        if (!currentUser || !authFetch) return;
 
         try {
             setIsLoading(true);
-            
-            // Carrega dados críticos de forma síncrona
-            const [resEmpresa, resFunis] = await Promise.all([
+
+            // Sempre carrega empresas e usuários
+            const [resEmpresa, resUsuarios] = await Promise.all([
                 authFetch('/empresa'),
-                authFetch(`/funil/${currentUser.companyId}`)
+                authFetch('/usuario')
             ]);
 
             if (resEmpresa?.ok) {
@@ -184,22 +57,21 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setCompanies(mapMongoToFront(data.data));
             }
 
-            if (resFunis?.ok) {
-                const data = await resFunis.json();
-                const mappedFunis = mapFunilToFront(data.data);
-                setPipelines(mappedFunis);
-
-                if (mappedFunis.length > 0) {
-                    const initialPipeId = mappedFunis[0].id;
-                    setActivePipelineId(initialPipeId);
-                    
-                    // Aguarda carregamento das etapas do primeiro funil
-                    const resEtapas = await authFetch(`/etapa/${initialPipeId}`);
-                    if (resEtapas?.ok) {
-                        const etapaData = await resEtapas.json();
-                        setStages(mapEtapaToFront(etapaData.data));
-                    }
-                }
+            if (resUsuarios?.ok) {
+                const data = await resUsuarios.json();
+                const mappedUsers = data.data?.map((u: any) => ({
+                    id: u._id,
+                    nome: u.nome,
+                    email: u.email,
+                    role: u.role,
+                    companyId: typeof u.empresa === 'object' ? u.empresa?._id : u.empresa,
+                    ativo: u.ativo !== false,
+                    acesso_confirmado: u.acesso_confirmado || false,
+                    permissions: u.permissions || {},
+                    criado_em: u.createdAt,
+                    atualizado_em: u.updatedAt
+                })) || [];
+                setUsers(mappedUsers);
             }
 
             // Carrega clientes
@@ -221,425 +93,226 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 })) || [];
                 setLeads(mappedClients);
             }
+
+            // Carrega dados: Proprietários carregam TODOS os dados, admin/vendedor carregam só da sua empresa
+            if (currentUser.role === 'proprietario') {
+                // Proprietários carregam todos os funis e etapas
+                const resFunis = await authFetch('/funil');
+                if (resFunis?.ok) {
+                    const data = await resFunis.json();
+                    const mappedFunis = mapFunilToFront(data.data);
+                    setPipelines(mappedFunis);
+                }
+
+                const resEtapas = await authFetch('/etapa');
+                if (resEtapas?.ok) {
+                    const data = await resEtapas.json();
+                    setStages(mapEtapaToFront(data.data));
+                }
+
+                // Carrega TODOS os produtos para proprietário
+                const resProdutos = await authFetch('/produto');
+                if (resProdutos?.ok) {
+                    const data = await resProdutos.json();
+                    const mappedProducts = data.data?.map((p: any) => ({
+                        id: p._id,
+                        nome: p.nome,
+                        valor_total: p.valor_total,
+                        parcelas: p.parcelas,
+                        companyId: p.empresa,
+                        deletado: p.excluido,
+                        criado_em: p.createdAt,
+                        atualizado_em: p.updatedAt
+                    })) || [];
+                    setProducts(mappedProducts);
+                }
+            } else {
+                // Admin/Vendedor: carrega dados da sua empresa
+                const resFunis = await authFetch(`/funil/${currentUser.companyId}`);
+                if (resFunis?.ok) {
+                    const data = await resFunis.json();
+                    const mappedFunis = mapFunilToFront(data.data);
+                    setPipelines(mappedFunis);
+
+                    if (mappedFunis.length > 0) {
+                        const initialPipeId = mappedFunis[0].id;
+                        setActivePipelineId(initialPipeId);
+
+                        const resEtapas = await authFetch(`/etapa/${initialPipeId}`);
+                        if (resEtapas?.ok) {
+                            const etapaData = await resEtapas.json();
+                            setStages(mapEtapaToFront(etapaData.data));
+                        }
+                    }
+                }
+
+                // Carrega produtos da empresa
+                const resProdutos = await authFetch(`/produto/${currentUser.companyId}`);
+                if (resProdutos?.ok) {
+                    const data = await resProdutos.json();
+                    const mappedProducts = data.data?.map((p: any) => ({
+                        id: p._id,
+                        nome: p.nome,
+                        valor_total: p.valor_total,
+                        parcelas: p.parcelas,
+                        companyId: p.empresa,
+                        deletado: p.excluido,
+                        criado_em: p.createdAt,
+                        atualizado_em: p.updatedAt
+                    })) || [];
+                    setProducts(mappedProducts);
+                }
+            }
+
+            // Carrega negociações para todos (proprietários e admin)
+            const resNegociacoes = await authFetch('/negociacao');
+            if (resNegociacoes?.ok) {
+                const data = await resNegociacoes.json();
+                const mappedDeals = data.data?.map((n: any) => ({
+                    id: n._id,
+                    lead_id: typeof n.cliente === 'object' ? n.cliente?._id : n.cliente,
+                    companyId: typeof n.empresa === 'object' ? n.empresa?._id : n.empresa,
+                    stage_id: typeof n.etapa === 'object' ? n.etapa?._id : n.etapa,
+                    responsavel_id: typeof n.responsavel === 'object' ? n.responsavel?._id : n.responsavel,
+                    pipeline_id: typeof n.funil === 'object' ? n.funil?._id : n.funil,
+                    nome: n.nome,
+                    valor_total: n.valor_total,
+                    desconto: n.desconto || 0,
+                    status: n.status || 'aberto',
+                    criado_em: n.createdAt,
+                    atualizado_em: n.updatedAt,
+                    deletado: n.deletado || false
+                })) || [];
+                setDeals(mappedDeals);
+
+                // Extrai produtos das negociações
+                const allDealProducts: any[] = [];
+                data.data?.forEach((n: any) => {
+                    if (n.produtos && Array.isArray(n.produtos)) {
+                        n.produtos.forEach((p: any) => {
+                            const prodId = p._id || p;
+                            const valor = p.valor_total || p.value || 0;
+                            const parcelas = p.parcelas || p.maxParcelas || 1;
+                            
+                            allDealProducts.push({
+                                id: prodId,
+                                deal_id: n._id,
+                                product_id: prodId,
+                                valor: valor,
+                                parcelas: parcelas
+                            });
+                        });
+                    }
+                });
+                setDealProducts(allDealProducts);
+
+                // Extrai tarefas das negociações
+                const allTasks: any[] = [];
+                data.data?.forEach((n: any) => {
+                    if (n.tarefas && Array.isArray(n.tarefas)) {
+                        n.tarefas.forEach((t: any) => {
+                            allTasks.push({
+                                id: t._id || Math.random().toString(36),
+                                deal_id: n._id,
+                                tipo: t.tipo,
+                                titulo: t.titulo || `Tarefa de ${t.tipo}`,
+                                companyId: typeof n.empresa === 'object' ? n.empresa?._id : n.empresa,
+                                data_hora: t.data || n.createdAt,
+                                status: t.concluida ? 'concluida' : 'pendente'
+                            });
+                        });
+                    }
+                });
+                setTasks(allTasks);
+            }
         } catch (error) {
             console.error("Erro ao carregar dados iniciais:", error);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentUser, authFetch, setCompanies, setUsers, setLeads, setTasks, setPipelines, setStages, setActivePipelineId, setProducts, setDeals]);
 
+    // Trigger na mudança de usuário
     useEffect(() => {
         if (currentUser) {
             fetchInitialData();
         }
-    }, [currentUser]);
-
-    useEffect(() => {
-        if (activePipelineId) {
-            const loadPipelineData = async () => {
-                const resEtapas = await authFetch(`/etapa/${activePipelineId}`);
-                if (resEtapas?.ok) {
-                    const etapaData = await resEtapas.json();
-                    setStages(mapEtapaToFront(etapaData.data));
-                }
-
-                const resNegociacoes = await authFetch(`/negociacao/${activePipelineId}`);
-                if (resNegociacoes?.ok) {
-                    const negData = await resNegociacoes.json();
-                    const mappedDeals = negData.data.map((n: any) => ({
-                        id: n._id,
-                        companyId: n.empresa,
-                        lead_id: n.cliente?._id || n.cliente,
-                        pipeline_id: n.funil,
-                        stage_id: n.etapa?._id || n.etapa,
-                        responsavel_id: n.responsavel?._id || n.responsavel,
-                        status: DealStatus.ABERTA,
-                        criado_em: n.createdAt,
-                        atualizado_em: n.updatedAt
-                    }));
-                    setDeals(mappedDeals);
-                }
-            }
-            loadPipelineData();
-        }
-    }, [activePipelineId]);
-
-    const currentCompany = useMemo(() => {
-        if (!currentUser) return null;
-        return companies.find(c => c.id === currentUser.companyId) || null;
-    }, [companies, currentUser]);
-
-    const login = async (email: string, pass: string) => {
-        try {
-            // Criptografa a senha antes de enviar para o login
-            const encryptedPass = encryptPassword(pass);
-
-            const res = await fetch(`${API_URL}/usuario/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password: encryptedPass })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                localStorage.setItem('token', data.token);
-
-                const userData = { ...data.user, id: data.user._id, companyId: data.user.empresa };
-                setCurrentUser(userData);
-                localStorage.setItem('crm_current_user', JSON.stringify(userData));
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error(e);
-            return false;
-        }
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('crm_current_user');
-        setCurrentUser(null);
-        setDeals([]);
-        setLeads([]);
-    };
-
-    const addCompany = async (companyData: Omit<Company, 'id' | 'criado_em'>, adminData?: { email: string, senha: string, nome: string }) => {
-        const res = await authFetch('/empresa', {
-            method: 'POST',
-            body: JSON.stringify(companyData)
-        });
-
-        if (res?.ok && adminData) {
-            // Se a empresa foi criada, cria o admin
-            // Como o usuário pediu para enviar criptografado no cadastro, usamos encryptPassword
-            const companyRes = await res.json();
-            // Assumindo que o retorno da criação da empresa traz o ID ou dados dela
-            // Vamos precisar do ID da nova empresa. Se o endpoint retorna a empresa criada:
-            // Ajuste aqui conforme o retorno real do seu back (ex: companyRes.data._id)
-
-            // NOTA: Como você não enviou o retorno exato do create empresa, 
-            // vou assumir que você vai implementar o vínculo manualmente ou que o back tratou.
-            // Mas para criar o usuário admin, chamo o addUser:
-
-            await addUser({
-                email: adminData.email,
-                nome: adminData.nome,
-                senha: adminData.senha, // addUser vai criptografar
-                role: 'proprietario',
-                ativo: true,
-                empresa: companyRes.data?._id // Assumindo estrutura do retorno
-            });
-        }
-
-        if (res?.ok) {
-            fetchInitialData();
-        }
-    };
-
-    const updateCompany = async (updated: Company) => {
-        await authFetch('/empresa/edit', {
-            method: 'POST',
-            body: JSON.stringify(updated)
-        });
-        setCompanies(prev => prev.map(c => c.id === updated.id ? updated : c));
-    };
-
-    const deleteCompany = async (id: string, reason: string) => {
-        await authFetch(`/empresa/delete/${id}`, { method: 'DELETE' });
-        setCompanies(prev => prev.filter(c => c.id !== id));
-    };
-
-    const addLead = async (leadData: any) => {
-        if (!activePipelineId || stages.length === 0) return { success: false, error: 'Funil não carregado' };
-
-        const payload = {
-            empresa: currentUser?.companyId,
-            nome: leadData.nome_completo,
-            email: leadData.email,
-            whatsapp: leadData.whatsapp,
-            responsavel: currentUser?.id,
-            origem: 'Manual',
-            tag: leadData.campanha,
-            produto: leadData.produto,
-            funil: leadData.funilId || activePipelineId,
-            etapa: leadData.etapaId || stages[0].id
-        };
-
-        const res = await authFetch('/cliente', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        if (res?.ok) {
-            fetchInitialData();
-            return { success: true };
-        }
-        return { success: false, error: 'Erro ao criar cliente' };
-    };
-
-    const updateLead = async (updated: Lead) => {
-        await authFetch('/cliente/edit', {
-            method: 'POST',
-            body: JSON.stringify({ id: updated.id, ...updated })
-        });
-        setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
-    };
-
-    const addPipeline = async (nome: string) => {
-        if (!currentUser?.companyId) return;
-        const res = await authFetch('/funil', {
-            method: 'POST',
-            body: JSON.stringify({ empresa: currentUser.companyId, nome })
-        });
-        if (res?.ok) fetchInitialData();
-    };
-
-    const updatePipeline = async (id: string, nome: string) => {
-        await authFetch('/funil/update', {
-            method: 'POST',
-            body: JSON.stringify({ id, nome })
-        });
-        setPipelines(prev => prev.map(p => p.id === id ? { ...p, nome } : p));
-    };
-
-    const deletePipeline = async (id: string, justification?: string) => {
-        await authFetch(`/funil/delete/${id}`, { method: 'DELETE' });
-        setPipelines(prev => prev.filter(p => p.id !== id));
-    };
-
-    const addStage = async (pipelineId: string, nome: string) => {
-        const res = await authFetch('/etapa', {
-            method: 'POST',
-            body: JSON.stringify({ funil: pipelineId, nome })
-        });
-        if (res?.ok) {
-            const resEtapas = await authFetch(`/etapa/${pipelineId}`);
-            if (resEtapas?.ok) {
-                const data = await resEtapas.json();
-                setStages(mapEtapaToFront(data.data));
-            }
-        }
-    };
-
-    const updateStage = async (id: string, nome: string) => {
-        await authFetch('/etapa/updatename', {
-            method: 'POST',
-            body: JSON.stringify({ id, nome })
-        });
-        setStages(prev => prev.map(s => s.id === id ? { ...s, nome } : s));
-    };
-
-    const reorderStages = async (newStages: PipelineStage[]) => {
-        setStages(newStages);
-
-        for (let i = 0; i < newStages.length; i++) {
-            await authFetch('/etapa/updateorder', {
-                method: 'POST',
-                body: JSON.stringify({ etapaId: newStages[i].id, newPosition: i })
-            });
-        }
-    };
-
-    const moveDeal = async (dealId: string, stageId: string) => {
-        setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage_id: stageId } : d));
-
-        await authFetch('/negociacao/updateetapa', {
-            method: 'POST',
-            body: JSON.stringify({ id: dealId, novaEtapaId: stageId })
-        });
-    };
-
-    const addUser = async (userData: any) => {
-        // Criptografa senha antes de enviar
-        const payload = {
-            ...userData,
-            empresa: currentUser?.companyId || userData.empresa,
-            senha: encryptPassword(userData.senha)
-        };
-
-        await authFetch('/usuario', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        fetchInitialData();
-    };
-
-    const changeUserPassword = async (userId: string, newPass: string) => {
-        // Também criptografa ao alterar senha
-        const encryptedPass = encryptPassword(newPass);
-
-        await authFetch('/usuario/passwordupdate', {
-            method: 'POST',
-            body: JSON.stringify({ id: userId, newPassword: encryptedPass })
-        });
-    };
-
-    const addEvent = (did: string, t: EventType, d: string) => {
-        setEvents(prev => [...prev, { id: Math.random().toString(36).substr(2, 9), deal_id: String(did), tipo_evento: t, descricao: d, criado_em: new Date().toISOString(), autor_id: currentUser?.id || 'system' }]);
-    };
-
-    const updateDealStatus = (id: string, s: DealStatus, reason?: string, discountInfo?: { type: 'fixed' | 'percentage', value: number }) => {
-        setDeals(prev => prev.map(d => String(d.id) === String(id) ? { ...d, status: s } : d));
-    };
-
-    const deleteLead = async (id: string, reason: string) => {
-        setLeads(prev => prev.map(l => l.id === id ? { ...l, deletado: true } : l));
-    };
-
-    const deleteStage = (id: string, justification?: string) => {
-        setStages(prev => prev.filter(s => s.id !== id));
-    };
-
-    const deleteProduct = (id: string, justification?: string) => {
-        setProducts(prev => prev.filter(p => p.id !== id));
-    };
-
-    const deleteUser = (id: string) => {
-        setUsers(prev => prev.filter(u => u.id !== id));
-    };
-
-    const importLeads = (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string }) => {
-        data.forEach(async (item) => {
-            await addLead({
-                nome_completo: item.nome_completo,
-                email: item.email,
-                whatsapp: item.whatsapp,
-                campanha: item.tags,
-                produto: item.produto
-            });
-        });
-        return { imported: data.length, failed: [] };
-    };
-
-    const addProduct = (p: any) => setProducts(prev => [...prev, { ...p, id: Math.random().toString(36).substr(2, 9), companyId: currentUser?.companyId }]);
-    const updateProduct = (updated: Product) => setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-
-    const approveNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
-    const rejectNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
-
-    const addTask = async (taskData: Omit<Task, 'id' | 'companyId' | 'status'>) => {
-        try {
-            const response = await authFetch(
-                `${API_URL}/negociacao/addtarefa`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        negociacaoId: taskData.deal_id,
-                        tarefa: {
-                            titulo: taskData.titulo,
-                            tipo: taskData.tipo,
-                            data: taskData.data_hora,
-                            concluida: false
-                        }
-                    })
-                }
-            );
-
-            const data = await response.json();
-            if (data?.data?.tarefas) {
-                const mappedTasks = data.data.tarefas.map((t: any) => ({
-                    id: t._id,
-                    titulo: t.titulo,
-                    tipo: t.tipo as TaskType,
-                    data_hora: t.data,
-                    status: t.concluida ? TaskStatus.CONCLUIDA : TaskStatus.PENDENTE,
-                    deal_id: taskData.deal_id,
-                    responsavel_id: taskData.responsavel_id,
-                    companyId: currentUser?.companyId || ''
-                }));
-                setTasks(prev => [...prev.filter(t => t.deal_id !== taskData.deal_id), ...mappedTasks]);
-            }
-        } catch (error) {
-            console.error('Erro ao adicionar tarefa:', error);
-        }
-    };
-
-    const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
-        try {
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
-
-            const response = await authFetch(
-                `${API_URL}/negociacao/updatetarefa`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        negociacaoId: task.deal_id,
-                        tarefaId: taskId,
-                        updates: {
-                            concluida: status === TaskStatus.CONCLUIDA
-                        }
-                    })
-                }
-            );
-
-            const data = await response.json();
-            if (data?.data?.tarefas) {
-                const mappedTasks = data.data.tarefas.map((t: any) => ({
-                    id: t._id,
-                    titulo: t.titulo,
-                    tipo: t.tipo as TaskType,
-                    data_hora: t.data,
-                    status: t.concluida ? TaskStatus.CONCLUIDA : TaskStatus.PENDENTE,
-                    deal_id: task.deal_id,
-                    responsavel_id: task.responsavel_id,
-                    companyId: currentUser?.companyId || ''
-                }));
-                setTasks(prev => [...prev.filter(t => t.deal_id !== task.deal_id), ...mappedTasks]);
-            }
-        } catch (error) {
-            console.error('Erro ao atualizar tarefa:', error);
-        }
-    };
-
-    const deleteTask = (taskId: string) => {
-        // Tasks não são deletadas, apenas marcadas como concluídas
-        const task = tasks.find(t => t.id === taskId);
-        if (task) {
-            updateTaskStatus(taskId, TaskStatus.CONCLUIDA);
-        }
-    };
-
-    const updateLeadClassificacao = (id: string, classificacao: number) => {
-        setLeads(prev => prev.map(l => l.id === id ? { ...l, classificacao } : l));
-    };
-
-    const addDealProduct = (dealId: string, productId: string) => {
-        const product = products.find(p => String(p.id) === String(productId));
-        if (!product) return;
-        const newDp: DealProduct = { id: Math.random().toString(36).substr(2, 9), deal_id: String(dealId), product_id: String(productId), valor: product.valor_total, parcelas: product.parcelas };
-        setDealProducts(prev => [...prev, newDp]);
-    };
-
-    const deleteDealProduct = (id: string) => {
-        setDealProducts(prev => prev.filter(item => item.id !== id));
-    };
-
-    const addDeal = (dealData: any) => {
-        return { success: false, error: "Use addLead para criar negociações" };
-    };
-
-    const batchUpdateLeadResponsavel = (leadIds: string[], responsavelId: string) => {
-        setLeads(prev => prev.map(l => leadIds.includes(l.id) ? { ...l, responsavel_id: responsavelId } : l));
-    };
-
-    const updateUserPermissions = (userId: string, permissions: UserPermissions, acesso_confirmado: boolean) => {
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions, acesso_confirmado } : u));
-    };
+    }, [currentUser, fetchInitialData]);
 
     return (
         <CRMContext.Provider value={{
-            companies, users, leads, pipelines, stages, deals, events, tasks, products, dealProducts, notifications, currentUser, currentCompany, activePipelineId, setActivePipelineId,
-            isLoading, login, logout, addCompany, updateCompany, deleteCompany, addLead, updateLead, updateDealStatus, addEvent, deleteLead, deletePipeline, deleteStage, deleteProduct, deleteUser,
-            addPipeline, updatePipeline, addStage, updateStage, reorderStages, addProduct, updateProduct, addUser, updateDealResponsavel: (did: string, rid: string) => { },
-            addDeal, moveDeal, addDealProduct, deleteDealProduct,
-            importLeads, syncLeadsFromFluent: (c: any) => ({ imported: 0, updated: 0 }), restoreLead: (id: string) => { }, batchUpdateLeadResponsavel,
-            updateLeadClassificacao, addTask, updateTaskStatus, deleteTask, updateUserPermissions, changeUserPassword,
-            approveNotification, rejectNotification, resetPassword: (e: string, p: string) => ({ success: true, message: '' })
-        } as any}>
+            // Estado
+            companies, users, leads, pipelines, stages, deals, events, tasks, products, dealProducts, notifications,
+            currentUser, currentCompany, activePipelineId,
+            isLoading: isLoading,
+
+            // Setters
+            setActivePipelineId,
+
+            // Auth
+            login, logout, resetPassword,
+
+            // Companies
+            addCompany,
+            updateCompany,
+            deleteCompany,
+
+            // Leads
+            addLead,
+            updateLead,
+            deleteLead,
+            restoreLead,
+            permanentlyDeleteLead,
+            updateLeadClassificacao,
+            batchUpdateLeadResponsavel,
+            importLeads,
+            syncLeadsFromFluent: (c) => ({ imported: 0, updated: 0 }),
+
+            // Pipelines
+            addPipeline,
+            updatePipeline,
+            deletePipeline,
+            loadPipelinesForCompany,
+            loadStagesForPipeline,
+
+            // Stages
+            addStage,
+            updateStage,
+            deleteStage,
+            reorderStages,
+
+            // Deals
+            addDeal,
+            moveDeal,
+            updateDealStatus,
+            updateDealResponsavel,
+            addEvent,
+            loadDealsForCompany,
+            addDealProduct,
+            deleteDealProduct,
+
+            // Tasks
+            addTask,
+            updateTaskStatus,
+            deleteTask,
+            loadTasksForCompany,
+
+            // Products
+            addProduct,
+            updateProduct,
+            deleteProduct,
+
+            // Users
+            addUser,
+            updateUser,
+            deleteUser,
+            changeUserPassword,
+            updateUserPermissions,
+
+            // Notifications
+            approveNotification,
+            rejectNotification
+        } as CRMContextType}>
             {children}
         </CRMContext.Provider>
     );

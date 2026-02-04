@@ -20,6 +20,10 @@ const EmpresaSchema = new mongoose.Schema({
     logo_url: {
         type: String,
         required: false
+    },
+    ativa: {
+        type: Boolean,
+        default: true
     }
 }, { timestamps: true });
 

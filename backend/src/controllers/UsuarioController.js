@@ -57,7 +57,7 @@ class UsuarioController {
         const { email, password } = req.body;
 
         try {
-            const user = await UsuarioModel.findOne({ email }).select('+senha');
+            const user = await UsuarioModel.findOne({ email }).select('+senha').populate('empresa');
 
             if (!user) {
                 return res.status(404).send({ message: "Email or password invalid." });

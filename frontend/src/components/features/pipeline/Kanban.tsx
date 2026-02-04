@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Lock, RotateCcw, Target, DollarSign, AlertCircle, Check, X, Trophy, Plus } from 'lucide-react';
 import { useCRM } from '../../../store';
 import { Deal, DealStatus, EventType, TaskType, TaskStatus } from '../../../types';
 
@@ -28,7 +29,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
         addTask, updateTaskStatus, deleteTask, updateLeadClassificacao
     } = useCRM();
 
-    const [activeTab, setActiveTab] = useState<'history' | 'tasks' | 'products'>('history');
+    const [activeTab, setActiveTab] = useState<'tasks' | 'products'>('tasks');
     const [showLostReason, setShowLostReason] = useState(false);
     const [showWonReason, setShowWonReason] = useState(false);
     const [reasonText, setReasonText] = useState('');
@@ -41,7 +42,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
     const [showTaskForm, setShowTaskForm] = useState(false);
     const [newTask, setNewTask] = useState({ titulo: '', tipo: TaskType.LIGACAO, data_hora: new Date().toISOString().slice(0, 16) });
 
-    const hasPermission = currentUser?.role === 'proprietario' || currentUser?.role === 'supervisor' || currentUser?.acessos?.includes('negocios');
+    const hasPermission = currentUser?.role === 'proprietario' || currentUser?.role === 'superadmin' || currentUser?.acessos?.includes('negocios');
 
     const deal = deals.find(d => String(d.id) === String(dealId));
 
@@ -106,7 +107,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
         return (
             <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center z-[300] p-4">
                 <div className="bg-white rounded-[50px] w-full max-w-xl p-12 text-center shadow-[0_0_100px_rgba(16,185,129,0.3)] border-4 border-emerald-500 animate-in zoom-in duration-300">
-                    <div className="text-8xl mb-8 animate-bounce">🏆</div>
+                <div className="text-8xl mb-8 animate-bounce"><Trophy className="w-24 h-24 text-yellow-500 mx-auto" /></div>
                     <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-6">NEGÓCIO GANHO!</h2>
                     <button onClick={onClose} className="btn-liquid-glass bg-emerald-600 text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all cursor-pointer">Voltar</button>
                 </div>
@@ -139,7 +140,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{deal.status}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-800 transition-all cursor-pointer">✕</button>
+                    <button onClick={onClose} className="p-3 text-slate-400 hover:text-slate-800 transition-all cursor-pointer"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden relative">
@@ -156,8 +157,8 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                                 <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Valor</p><h4 className="text-3xl font-black text-slate-900">R$ {totalOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4></div>
                                 {deal.status === DealStatus.ABERTA && hasPermission && (
                                     <div className="space-y-3 pt-4 border-t border-slate-100">
-                                        <button onClick={() => setShowWonReason(true)} className="w-full btn-liquid-glass bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all text-xs uppercase cursor-pointer">✓ Marcar Venda</button>
-                                        <button onClick={() => setShowLostReason(true)} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase cursor-pointer">✕ Perder Negócio</button>
+                                        <button onClick={() => setShowWonReason(true)} className="w-full btn-liquid-glass bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all text-xs uppercase cursor-pointer flex items-center justify-center gap-2"><Check className="w-4 h-4" /> Marcar Venda</button>
+                                        <button onClick={() => setShowLostReason(true)} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase cursor-pointer flex items-center justify-center gap-2"><X className="w-4 h-4" /> Perder Negócio</button>
                                     </div>
                                 )}
                             </>
@@ -180,18 +181,19 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
 
                     <div className="flex-1 overflow-y-auto p-8">
                         <div className="flex border-b border-slate-100 mb-8">
-                            {['history', 'tasks', 'products'].map(t => (
+                            {['tasks', 'products'].map(t => (
                                 <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-4 font-black text-[10px] uppercase tracking-widest cursor-pointer ${activeTab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}`}>{t}</button>
                             ))}
                         </div>
-                        {activeTab === 'history' && (
+                        {/* Aba de histórico comentada - será implementada posteriormente */}
+                        {/* {activeTab === 'history' && (
                             <div className="space-y-6">
                                 {hasPermission && <form onSubmit={handleAddNote} className="flex gap-2"><input className="flex-1 p-3 border rounded-xl font-bold text-xs" placeholder="Nova observação..." value={newNote} onChange={e => setNewNote(e.target.value)} /><button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-black text-[10px]">Salvar</button></form>}
                                 {dealEvents.map(e => (
                                     <div key={e.id} className="relative pl-4 border-l-2 border-slate-100"><p className="text-[10px] text-slate-400">{new Date(e.criado_em).toLocaleString()}</p><p className="text-sm font-bold">{e.descricao}</p></div>
                                 ))}
                             </div>
-                        )}
+                        )} */}
                         {activeTab === 'tasks' && (
                             <div className="space-y-4">
                                 {hasPermission && !showTaskForm && <button onClick={() => setShowTaskForm(true)} className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase w-full">+ Nova Tarefa</button>}
@@ -203,9 +205,9 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                                             value={newTask.tipo}
                                             onChange={e => setNewTask({ ...newTask, tipo: e.target.value as TaskType })}
                                         >
-                                            <option value={TaskType.LIGACAO}>📞 Ligar</option>
-                                            <option value={TaskType.WHATSAPP}>💬 WhatsApp</option>
-                                            <option value={TaskType.EMAIL}>📧 E-mail</option>
+                                            <option value={TaskType.LIGACAO}>Ligar</option>
+                                            <option value={TaskType.WHATSAPP}>WhatsApp</option>
+                                            <option value={TaskType.EMAIL}>E-mail</option>
                                         </select>
                                         <input
                                             required
@@ -243,13 +245,21 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                                                 {new Date(t.data_hora).toLocaleString()}
                                             </p>
                                         </div>
-                                        {t.status === TaskStatus.PENDENTE && hasPermission && (
-                                            <button
-                                                onClick={() => updateTaskStatus(t.id, TaskStatus.CONCLUIDA)}
-                                                className="text-emerald-600 font-black"
-                                            >
-                                                ✓
-                                            </button>
+                                        {hasPermission && (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => updateTaskStatus(t.id, t.status === TaskStatus.CONCLUIDA ? TaskStatus.PENDENTE : TaskStatus.CONCLUIDA)}
+                                                    className={`font-black flex items-center justify-center ${t.status === TaskStatus.CONCLUIDA ? 'text-slate-400' : 'text-emerald-600'}`}
+                                                >
+                                                    {t.status === TaskStatus.CONCLUIDA ? <RotateCcw className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteTask(t.id)}
+                                                    className="text-red-600 font-black flex items-center justify-center"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
@@ -301,7 +311,7 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
                                                         onClick={() => deleteDealProduct(dp.id)}
                                                         className="text-red-400 font-black"
                                                     >
-                                                        ✕
+                                                        <X className="w-3 h-3" />
                                                     </button>
                                                 )}
                                             </div>
@@ -318,20 +328,43 @@ const DealDetailModal: React.FC<{ dealId: string; onClose: () => void; onStatusC
 };
 
 const Kanban: React.FC = () => {
-    const { stages, deals, leads, dealProducts, activePipelineId, setActivePipelineId, moveDeal, currentUser, pipelines, currentCompany } = useCRM();
+    const { stages, deals, leads, dealProducts, activePipelineId, setActivePipelineId, moveDeal, currentUser, pipelines, currentCompany, companies, loadPipelinesForCompany, loadStagesForPipeline, loadDealsForCompany } = useCRM();
     const [activeStatusTab, setActiveStatusTab] = useState<DealStatus>(DealStatus.ABERTA);
     const [filterRating, setFilterRating] = useState<number | 'all'>('all');
     const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id || '');
 
-    const canInteract = currentUser?.role === 'proprietario' || currentUser?.role === 'supervisor' || currentUser?.acessos?.includes('negocios');
+    const canInteract = currentUser?.role === 'proprietario' || currentUser?.role === 'superadmin' || currentUser?.acessos?.includes('negocios');
+    const isProprietario = currentUser?.role === 'proprietario';
+
+    const selectedCompanyObj = useMemo(() => {
+        return companies.find(c => c.id === selectedCompanyId);
+    }, [companies, selectedCompanyId]);
+
+    // Carrega funis, etapas e negociações quando o proprietário muda de empresa
+    useEffect(() => {
+        if (isProprietario && selectedCompanyId) {
+            loadPipelinesForCompany(selectedCompanyId);
+            loadDealsForCompany(selectedCompanyId);
+            setActivePipelineId(''); // Reseta o funil ativo para recarregar
+        }
+    }, [selectedCompanyId, isProprietario, loadPipelinesForCompany, loadDealsForCompany, setActivePipelineId]);
+
+    // Carrega etapas quando o funil ativo muda
+    useEffect(() => {
+        if (activePipelineId) {
+            loadStagesForPipeline(activePipelineId);
+        }
+    }, [activePipelineId, loadStagesForPipeline]);
 
     const availablePipelines = useMemo(() => {
+        const companyToFilter = isProprietario ? selectedCompanyId : getSafeId(currentCompany?.id);
         return pipelines.filter(p => {
-            const belongsToCompany = (getSafeId(p.companyId) || getSafeId(p.empresa)) === getSafeId(currentCompany?.id);
+            const belongsToCompany = (getSafeId(p.companyId) || getSafeId(p.empresa)) === companyToFilter;
             return belongsToCompany;
         });
-    }, [pipelines, currentCompany]);
+    }, [pipelines, currentCompany, selectedCompanyId, isProprietario]);
 
     useEffect(() => {
         if ((!activePipelineId || activePipelineId === '') && availablePipelines.length > 0) {
@@ -389,8 +422,26 @@ const Kanban: React.FC = () => {
                             onClick={handleRefresh}
                             className={`p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all cursor-pointer ${isRefreshing ? 'animate-spin' : ''}`}
                         >
-                            🔄
+                            <RotateCcw className="w-5 h-5" />
                         </button>
+                        {isProprietario && (
+                            <select
+                                className="rounded-xl px-5 py-2.5 font-black text-xs uppercase cursor-pointer outline-none border"
+                                style={{
+                                    backgroundColor: selectedCompanyObj?.cor_destaque ? `${selectedCompanyObj.cor_destaque}20` : '#f0f0f0',
+                                    borderColor: selectedCompanyObj?.cor_destaque || '#e5e7eb',
+                                    color: selectedCompanyObj?.cor_destaque || '#6b7280'
+                                }}
+                                value={selectedCompanyId}
+                                onChange={e => setSelectedCompanyId(e.target.value)}
+                            >
+                                {companies.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.nome}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <select
                             className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-2.5 font-black text-blue-700 text-xs uppercase cursor-pointer outline-none"
                             value={activePipelineId || ''}
@@ -420,9 +471,15 @@ const Kanban: React.FC = () => {
                             <button
                                 key={s}
                                 onClick={() => setActiveStatusTab(s)}
-                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer ${activeStatusTab === s ? (s === DealStatus.GANHA ? 'bg-emerald-600 text-white shadow-lg' : s === DealStatus.PERDIDA ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}
+                                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer flex items-center gap-2 ${activeStatusTab === s ? (s === DealStatus.GANHA ? 'bg-emerald-600 text-white shadow-lg' : s === DealStatus.PERDIDA ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}
                             >
-                                {s === DealStatus.ABERTA ? '🎯 Negociações' : s === DealStatus.GANHA ? '💰 Vendidos' : '🚫 Perdidos'}
+                                {s === DealStatus.ABERTA ? (
+                                    <><Target className="w-4 h-4" /> Negociações</>
+                                ) : s === DealStatus.GANHA ? (
+                                    <><DollarSign className="w-4 h-4" /> Vendidos</>
+                                ) : (
+                                    <><AlertCircle className="w-4 h-4" /> Perdidos</>
+                                )}
                             </button>
                         ))}
                     </div>

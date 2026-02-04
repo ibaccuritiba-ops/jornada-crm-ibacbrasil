@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { Edit2, Trash2, Plus, Lock, RotateCcw, Target, Box, X } from 'lucide-react';
 import { useCRM } from '../../../store';
 
 const PipelineSettings: React.FC = () => {
     const {
         currentUser, currentCompany, pipelines, activePipelineId, setActivePipelineId,
         stages, addStage, deleteStage, updateStage, reorderStages,
-        addPipeline, updatePipeline, deletePipeline
+        addPipeline, loadPipelinesForCompany, updatePipeline, deletePipeline, companies
     } = useCRM();
 
     const [isAddingStage, setIsAddingStage] = useState(false);
@@ -15,20 +16,54 @@ const PipelineSettings: React.FC = () => {
     const [newPipelineName, setNewPipelineName] = useState('');
     const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
     const [editPipelineName, setEditPipelineName] = useState('');
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
     const canEdit = useMemo(() => {
         if (!currentUser) return false;
-        if (currentUser.role === 'proprietario' || currentUser.role === 'supervisor') return true;
+        if (currentUser.role === 'proprietario' || currentUser.role === 'superadmin') return true;
         return currentUser.acessos?.includes('config.funil');
     }, [currentUser]);
+
+    const isProprietario = useMemo(() => currentUser?.role === 'proprietario', [currentUser]);
+
+    // Empresa selecionada - usa seleção de proprietário ou currentCompany padrão
+    const activeCompanyId = useMemo(() => {
+        if (isProprietario && selectedCompanyId) return selectedCompanyId;
+        return currentCompany?.id || '';
+    }, [isProprietario, selectedCompanyId, currentCompany?.id]);
+
+    const selectedCompanyObj = useMemo(() => {
+        return companies.find(c => c.id === activeCompanyId);
+    }, [companies, activeCompanyId]);
+
+    // Inicializa selectedCompanyId quando currentCompany carrega
+    React.useEffect(() => {
+        if (isProprietario && !selectedCompanyId) {
+            // Se tem currentCompany carregada, usa ela
+            if (currentCompany?.id) {
+                setSelectedCompanyId(currentCompany.id);
+            } 
+            // Fallback: se não tem currentCompany mas tem companyId no usuário, usa diretamente
+            else if (currentUser?.companyId) {
+                setSelectedCompanyId(currentUser.companyId);
+            }
+        }
+    }, [isProprietario, currentCompany?.id, currentUser?.companyId, selectedCompanyId]);
+
+    // Carrega funis da empresa selecionada quando muda
+    React.useEffect(() => {
+        if (isProprietario && activeCompanyId) {
+            loadPipelinesForCompany(activeCompanyId);
+        }
+    }, [isProprietario, activeCompanyId, loadPipelinesForCompany]);
 
     // Filtro de Funis
     const companyPipelines = useMemo(() =>
         pipelines.filter(p => {
-            const belongsToCompany = p.companyId === currentCompany?.id;
+            const belongsToCompany = p.companyId === activeCompanyId;
             return belongsToCompany;
         }),
-        [pipelines, currentCompany]
+        [pipelines, activeCompanyId]
     );
 
     const selectedPipeline = useMemo(() =>
@@ -44,11 +79,20 @@ const PipelineSettings: React.FC = () => {
         [stages, activePipelineId]
     );
 
+    // Função para contar etapas de um funil específico
+    const getStageCountForPipeline = (pipelineId: string) => {
+        return stages.filter(s => String(s.pipeline_id || s.funil) === String(pipelineId)).length;
+    };
+
     const handleConfirmAddPipeline = (e: React.FormEvent) => {
         e.preventDefault();
         if (!canEdit) return;
         if (!newPipelineName.trim()) return;
-        addPipeline(newPipelineName.trim());
+        if (!activeCompanyId) {
+            alert('Selecione uma empresa primeiro');
+            return;
+        }
+        addPipeline(newPipelineName.trim(), activeCompanyId);
         setNewPipelineName('');
         setIsAddingPipeline(false);
     };
@@ -101,12 +145,33 @@ const PipelineSettings: React.FC = () => {
     return (
         <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in pb-20">
             <section className="space-y-6">
-                <div className="flex justify-between items-end">
+                <div className="flex justify-between items-center gap-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl"><span className="text-2xl">🔄</span></div>
+                        <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl"><RotateCcw className="w-6 h-6" /></div>
                         <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Arquitetura de Funis</h2><p className="text-slate-500 text-sm font-medium">Gestão e personalização das esteiras de venda</p></div>
                     </div>
-                    {canEdit && !isAddingPipeline && (<button onClick={() => setIsAddingPipeline(true)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all cursor-pointer">+ Novo Funil</button>)}
+                    {isProprietario && (
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-black text-slate-600 uppercase tracking-widest flex items-center justify-end gap-1"><Box className="w-4 h-4" /> Empresa</label>
+                            <select
+                                value={selectedCompanyId}
+                                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                                style={{
+                                    backgroundColor: selectedCompanyObj?.cor_destaque ? `${selectedCompanyObj.cor_destaque}20` : '#f0f0f0',
+                                    borderColor: selectedCompanyObj?.cor_destaque || '#e5e7eb',
+                                    color: selectedCompanyObj?.cor_destaque || '#6b7280'
+                                }}
+                                className="p-3 rounded-xl border-2 font-bold text-sm focus:outline-none focus:ring-2 transition-all cursor-pointer min-w-xs"
+                            >
+                                <option value="">Selecione uma empresa...</option>
+                                {companies.map(company => (
+                                    <option key={company.id} value={company.id}>
+                                        {company.nome}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {companyPipelines.map(p => {
@@ -122,8 +187,8 @@ const PipelineSettings: React.FC = () => {
                                     </div>
                                     {canEdit && (
                                         <div className="flex gap-2 transition-opacity">
-                                            <button onClick={(e) => startEditingPipeline(e, p.id, p.nome)} className="text-slate-400 hover:text-blue-600 transition-colors p-1 bg-white rounded shadow-sm border border-slate-100" title="Renomear Funil">✏️</button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeletePipelineRequest(p.id, p.nome); }} className="text-slate-400 hover:text-red-500 transition-colors p-1 bg-white rounded shadow-sm border border-slate-100" title="Apagar Funil">🗑️</button>
+                                            <button onClick={(e) => startEditingPipeline(e, p.id, p.nome)} className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-all p-2 bg-blue-50 rounded-lg shadow-md border border-blue-200" title="Renomear Funil"><Edit2 className="w-5 h-5" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeletePipelineRequest(p.id, p.nome); }} className="text-red-500 hover:text-red-700 hover:bg-red-100 transition-all p-2 bg-red-50 rounded-lg shadow-md border border-red-200" title="Apagar Funil"><Trash2 className="w-5 h-5" /></button>
                                         </div>
                                     )}
                                 </div>
@@ -132,20 +197,23 @@ const PipelineSettings: React.FC = () => {
                                 ) : (
                                     <h4 className={`text-lg font-black ${activePipelineId === p.id ? 'text-blue-700' : 'text-slate-800'}`}>{p.nome}</h4>
                                 )}
-                                <div className="mt-4 flex items-center gap-1"><div className="flex gap-0.5">{stages.filter(s => String(s.pipeline_id || s.funil) === String(p.id)).slice(0, 5).map((_, i) => (<div key={i} className={`w-3 h-1 rounded ${activePipelineId === p.id ? 'bg-blue-300' : 'bg-slate-200'}`}></div>))}</div><span className="text-[10px] font-bold text-slate-400 ml-1.5">{stages.filter(s => String(s.pipeline_id || s.funil) === String(p.id)).length} Etapas Definidas</span></div>
+                                <div className="mt-4 flex items-center gap-1"><div className="flex gap-0.5">{stages.filter(s => String(s.pipeline_id || s.funil) === String(p.id)).slice(0, 5).map((_, i) => (<div key={i} className={`w-3 h-1 rounded ${activePipelineId === p.id ? 'bg-blue-300' : 'bg-slate-200'}`}></div>))}</div><span className="text-[10px] font-bold text-slate-400 ml-1.5">{getStageCountForPipeline(p.id)} Etapas Definidas</span></div>
                             </div>
                         );
                     })}
                     {isAddingPipeline && (
-                        <form onSubmit={handleConfirmAddPipeline} className="p-8 rounded-[40px] border-2 border-dashed border-blue-400 bg-blue-50/20 flex flex-col justify-center animate-in zoom-in duration-200"><input autoFocus className="bg-white p-4 rounded-xl border border-blue-200 font-bold mb-4 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="Ex: Novos Clientes..." value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} /><div className="flex gap-2"><button type="submit" className="flex-1 bg-blue-600 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest cursor-pointer active:scale-95 transition-transform">Confirmar Criação</button><button type="button" onClick={() => setIsAddingPipeline(false)} className="px-4 bg-white text-slate-500 border border-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-pointer">✕</button></div></form>
+                        <form onSubmit={handleConfirmAddPipeline} className="p-8 rounded-[40px] border-2 border-dashed border-blue-400 bg-blue-50/20 flex flex-col justify-center animate-in zoom-in duration-200"><input autoFocus className="bg-white p-4 rounded-xl border border-blue-200 font-bold mb-4 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="Ex: Novos Clientes..." value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} /><div className="flex gap-2"><button type="submit" className="flex-1 bg-blue-600 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest cursor-pointer active:scale-95 transition-transform">Confirmar Criação</button><button type="button" onClick={() => setIsAddingPipeline(false)} className="px-4 bg-white text-slate-500 border border-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-pointer"><X className="w-4 h-4" /></button></div></form>
+                    )}
+                    {!isAddingPipeline && canEdit && (
+                        <button type="button" onClick={() => setIsAddingPipeline(true)} className="p-8 border-2 border-dashed border-slate-200 rounded-[40px] text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/20 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"><Plus className="w-8 h-8 group-hover:scale-125 transition-transform" /><span className="font-black text-xs uppercase tracking-widest">Novo Funil</span></button>
                     )}
                 </div>
             </section>
 
             {selectedPipeline && (
                 <section className="space-y-6">
-                    <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-xl"><span className="text-2xl">🎯</span></div><div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Etapas de: {selectedPipeline.nome}</h2><p className="text-slate-500 text-sm font-medium">Configure a jornada do lead nesta esteira</p></div></div>
-                    {!canEdit && (<div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center gap-4"><span className="text-2xl">🔒</span><div className="text-amber-800 text-xs font-bold">Acesso Somente Leitura. Contate um administrador para alterar a jornada.</div></div>)}
+                    <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-xl"><Target className="w-6 h-6" /></div><div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Etapas de: {selectedPipeline.nome}</h2><p className="text-slate-500 text-sm font-medium">Configure a jornada do lead nesta esteira</p></div></div>
+                    {!canEdit && (<div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center gap-4"><Lock className="w-6 h-6 text-amber-700" /><div className="text-amber-800 text-xs font-bold">Acesso Somente Leitura. Contate um administrador para alterar a jornada.</div></div>)}
                     <div className="bg-white p-10 rounded-[40px] border border-slate-200 shadow-sm">
                         <div className="space-y-3">
                             {filteredStages.length === 0 && !isAddingStage && (<div className="p-16 text-center border-2 border-dashed border-slate-100 rounded-[30px]"><p className="text-slate-400 font-medium text-sm italic">Este funil ainda não possui colunas na jornada.</p></div>)}
@@ -157,12 +225,12 @@ const PipelineSettings: React.FC = () => {
                                         <div className="flex-1 flex items-center gap-3">
                                             <input disabled={!canEdit} className={`flex-1 font-black text-slate-800 bg-white border border-transparent rounded-xl px-4 py-3 outline-none transition-all ${canEdit ? 'focus:border-blue-300 focus:bg-slate-50' : ''}`} defaultValue={s.nome} onBlur={(e) => canEdit && updateStage(s.id, e.target.value)} />
                                         </div>
-                                        {canEdit && (<div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onClick={() => handleDeleteStageRequest(s.id, s.nome)} className="p-3 text-slate-400 hover:text-red-500 cursor-pointer transition-all">🗑️</button></div>)}
+                                        {canEdit && (<div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button type="button" onClick={() => handleDeleteStageRequest(s.id, s.nome)} className="p-3 text-slate-400 hover:text-red-500 cursor-pointer transition-all"><Trash2 className="w-4 h-4" /></button></div>)}
                                     </div>
                                 );
                             })}
-                            {isAddingStage && canEdit && (<form onSubmit={handleConfirmAddStage} className="p-6 border-2 border-blue-200 rounded-[30px] bg-blue-50/30 flex gap-4 animate-in slide-in-from-top-2"><input autoFocus required className="flex-1 bg-white p-4 rounded-xl border border-blue-200 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="Nome da etapa (Ex: Proposta Enviada)..." value={newStageName} onChange={(e) => setNewStageName(e.target.value)} /><button type="submit" className="bg-blue-600 text-white px-8 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">Confirmar</button><button type="button" onClick={() => setIsAddingStage(false)} className="text-slate-400 font-black text-[10px] uppercase px-4 cursor-pointer hover:text-slate-600 transition-colors">✕</button></form>)}
-                            {canEdit && !isAddingStage && (<button type="button" onClick={() => setIsAddingStage(true)} className="w-full p-8 border-2 border-dashed border-slate-200 rounded-[30px] text-xs font-black text-slate-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-600 transition-all cursor-pointer mt-6 flex flex-col items-center justify-center gap-2 group"><span className="text-2xl group-hover:scale-125 transition-transform">➕</span>Inserir Etapa na Jornada</button>)}
+                            {isAddingStage && canEdit && (<form onSubmit={handleConfirmAddStage} className="p-6 border-2 border-blue-200 rounded-[30px] bg-blue-50/30 flex gap-4 animate-in slide-in-from-top-2"><input autoFocus required className="flex-1 bg-white p-4 rounded-xl border border-blue-200 font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="Nome da etapa (Ex: Proposta Enviada)..." value={newStageName} onChange={(e) => setNewStageName(e.target.value)} /><button type="submit" className="bg-blue-600 text-white px-8 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">Confirmar</button><button type="button" onClick={() => setIsAddingStage(false)} className="text-slate-400 font-black text-[10px] uppercase px-4 cursor-pointer hover:text-slate-600 transition-colors"><X className="w-4 h-4" /></button></form>)}
+                            {canEdit && !isAddingStage && (<button type="button" onClick={() => setIsAddingStage(true)} className="w-full p-8 border-2 border-dashed border-slate-200 rounded-[30px] text-xs font-black text-slate-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-600 transition-all cursor-pointer mt-6 flex flex-col items-center justify-center gap-2 group"><Plus className="w-6 h-6 group-hover:scale-125 transition-transform" />Inserir Etapa na Jornada</button>)}
                         </div>
                     </div>
                 </section>

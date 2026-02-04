@@ -1,19 +1,24 @@
 
 import React, { useState, useMemo } from 'react';
+import { Phone, Mail, MessageSquare, User, Clock, Trash2, Calendar, Plus, Check, ChevronDown } from 'lucide-react';
 import { useCRM } from '../../store';
 import { TaskStatus, TaskType, DealStatus } from '../../types';
 
 const Tasks: React.FC = () => {
-    const { tasks, deals, leads, currentUser, updateTaskStatus, deleteTask } = useCRM();
+    const { tasks, deals, leads, companies, currentUser, updateTaskStatus, deleteTask } = useCRM();
     const [filterStatus, setFilterStatus] = useState<TaskStatus | 'ALL'>(TaskStatus.PENDENTE);
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
     const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
     const myTasks = useMemo(() => {
-        return tasks.filter(t =>
-            String(t.responsavel_id) === String(currentUser?.id) &&
-            (filterStatus === 'ALL' || t.status === filterStatus)
-        ).sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime());
-    }, [tasks, currentUser, filterStatus]);
+        return tasks.filter(t => {
+            const isPropietario = currentUser?.role === 'proprietario';
+            const sameCompany = isPropietario 
+                ? (selectedCompanyId === 'all' || t.companyId === selectedCompanyId)
+                : t.companyId === currentUser?.companyId;
+            return sameCompany && (filterStatus === 'ALL' || t.status === filterStatus);
+        }).sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime());
+    }, [tasks, currentUser, filterStatus, selectedCompanyId]);
 
     const groupedTasks = useMemo(() => {
         const today = new Date();
@@ -51,8 +56,8 @@ const Tasks: React.FC = () => {
             <div key={t.id} className={`bg-white rounded-3xl border transition-all shadow-sm group hover:border-blue-300 overflow-hidden ${t.status === TaskStatus.CONCLUIDA ? 'opacity-60 bg-slate-50' : isPast ? 'border-red-100 bg-red-50/30' : 'border-slate-100'}`}>
                 <div className="p-6 flex items-center justify-between cursor-pointer" onClick={() => setExpandedTaskId(isExpanded ? null : t.id)}>
                     <div className="flex items-center gap-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm ${t.status === TaskStatus.CONCLUIDA ? 'bg-slate-200 text-slate-400' : isPast ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                            {t.tipo === TaskType.LIGACAO ? '📞' : t.tipo === TaskType.EMAIL ? '📧' : t.tipo === TaskType.WHATSAPP ? '💬' : '👤'}
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${t.status === TaskStatus.CONCLUIDA ? 'bg-slate-200 text-slate-400' : isPast ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {t.tipo === TaskType.LIGACAO ? <Phone className="w-6 h-6" /> : t.tipo === TaskType.EMAIL ? <Mail className="w-6 h-6" /> : t.tipo === TaskType.WHATSAPP ? <MessageSquare className="w-6 h-6" /> : <User className="w-6 h-6" />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
@@ -60,16 +65,16 @@ const Tasks: React.FC = () => {
                                 <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-widest">{t.tipo}</span>
                             </div>
                             <div className="flex items-center gap-3 mt-1">
-                                <p className={`text-[11px] font-black uppercase ${isPast && t.status === TaskStatus.PENDENTE ? 'text-red-600' : 'text-slate-400'}`}>
-                                    🕒 {new Date(t.data_hora).toLocaleString('pt-BR')} {isPast && t.status === TaskStatus.PENDENTE && '• ATRASADO'}
+                                <p className={`text-[11px] font-black uppercase flex items-center gap-1 ${isPast && t.status === TaskStatus.PENDENTE ? 'text-red-600' : 'text-slate-400'}`}>
+                                    <Clock className="w-3 h-3" /> {new Date(t.data_hora).toLocaleString('pt-BR')} {isPast && t.status === TaskStatus.PENDENTE && '• ATRASADO'}
                                 </p>
-                                {lead && <span className="text-[11px] font-bold text-slate-500">• 👤 {lead.nome_completo}</span>}
+                                {lead && <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">• <User className="w-3 h-3" /> {lead.nome_completo}</span>}
                             </div>
                         </div>
                     </div>
 
                     <div className="flex gap-2">
-                        <span className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                 </div>
 
@@ -96,16 +101,16 @@ const Tasks: React.FC = () => {
                                     {t.status === TaskStatus.PENDENTE && (
                                         <button
                                             onClick={() => updateTaskStatus(t.id, TaskStatus.CONCLUIDA)}
-                                            className="flex-1 bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 cursor-pointer active:scale-95"
+                                            className="flex-1 bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                                         >
-                                            ✓ Marcar como Concluída
+                                            <Check className="w-4 h-4" /> Marcar como Concluída
                                         </button>
                                     )}
                                     <button
                                         onClick={() => deleteTask(t.id)}
-                                        className="p-4 bg-white text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl border border-slate-200 transition-all cursor-pointer"
+                                        className="p-4 bg-white text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl border border-slate-200 transition-all cursor-pointer flex items-center gap-2"
                                     >
-                                        🗑️ Excluir
+                                        <Trash2 className="w-4 h-4" /> Excluir
                                     </button>
                                 </div>
                             </div>
@@ -121,7 +126,7 @@ const Tasks: React.FC = () => {
             <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200">
-                        <span className="text-2xl">📅</span>
+                        <Calendar className="w-6 h-6" />
                     </div>
                     <div>
                         <h2 className="text-2xl font-black text-slate-800 tracking-tight">Agenda Operacional</h2>
@@ -143,6 +148,19 @@ const Tasks: React.FC = () => {
                         </button>
                     ))}
                 </div>
+
+                {currentUser?.role === 'proprietario' && (
+                    <select
+                        value={selectedCompanyId}
+                        onChange={(e) => setSelectedCompanyId(e.target.value)}
+                        className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+                    >
+                        <option value="all">Todas as Empresas</option>
+                        {companies.map(c => (
+                            <option key={c.id} value={c.id}>{c.nome}</option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             <div className="space-y-12">

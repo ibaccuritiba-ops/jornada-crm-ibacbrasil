@@ -1,9 +1,12 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Edit2, Rocket, Trash2, Box, User as UserIcon, Clock, Eye, EyeOff, Search, X, Download, AlertCircle } from 'lucide-react';
 import { CRMProvider, useCRM } from './store';
+import { useAuthFetch } from './hooks/useAuthFetch';
 import Layout from './components/shared/Layout';
 import Kanban from './components/features/pipeline/Kanban';
 import ImportLeads from './components/features/leads/ImportLeads';
+import Trash from './components/features/leads/Trash';
 import Settings from './components/features/settings/Settings';
 import PipelineSettings from './components/features/pipeline/PipelineSettings';
 import Branding from './components/features/admin/Branding';
@@ -163,15 +166,15 @@ const LeadProfileModal: React.FC<{ leadId: string; onClose: () => void }> = ({ l
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-4 text-slate-400 hover:text-slate-800 transition-all cursor-pointer bg-white rounded-2xl shadow-sm border border-slate-100">✕</button>
+                    <button onClick={onClose} className="p-4 text-slate-400 hover:text-slate-800 transition-all cursor-pointer bg-white rounded-2xl shadow-sm border border-slate-100"><X className="w-5 h-5" /></button>
                 </div>
 
                 {/* Tabs */}
                 <div className="flex px-8 border-b border-slate-100 bg-white">
                     {[
-                        { id: 'overview', label: 'Informações & Origem', icon: '👤' },
-                        { id: 'consumption', label: 'Consumo & Produtos', icon: '📦' },
-                        { id: 'timeline', label: 'Jornada do Lead', icon: '🕒' }
+                        { id: 'overview', label: 'Informações & Origem', icon: <UserIcon className="w-4 h-4" /> },
+                        { id: 'consumption', label: 'Consumo & Produtos', icon: <Box className="w-4 h-4" /> },
+                        { id: 'timeline', label: 'Jornada do Lead', icon: <Clock className="w-4 h-4" /> }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -308,15 +311,24 @@ const LoginView = () => {
     const [err, setErr] = useState('');
     const [showPass, setShowPass] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!login(email, pass)) {
+        setErr('');
+        const success = await login(email, pass);
+        if (!success) {
             setErr('Credenciais inválidas ou acesso pendente de liberação.');
+            setTimeout(() => setErr(''), 5000);
         }
     };
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+            {err && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-xl animate-in slide-in-from-top duration-300 z-50 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <span>{err}</span>
+                </div>
+            )}
             <div className="bg-white p-10 rounded-[40px] shadow-2xl border border-slate-200 w-full max-w-md animate-in fade-in zoom-in duration-300">
                 <div className="flex justify-center mb-10">
                     <Logo size="lg" />
@@ -350,11 +362,10 @@ const LoginView = () => {
                                 onClick={() => setShowPass(!showPass)}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
                             >
-                                {showPass ? "🙈" : "👁️"}
+                                {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                         </div>
                     </div>
-                    {err && <p className="text-red-500 text-xs font-bold text-center">{err}</p>}
                     <button type="submit" className="w-full btn-liquid-glass bg-blue-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 cursor-pointer">Acessar CRM</button>
                 </form>
                 <p className="mt-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2024 IbacBrasil Ecossistema</p>
@@ -364,7 +375,10 @@ const LoginView = () => {
 };
 
 const LeadsView = () => {
-    const { leads, deals, products, addLead, updateLead, deleteLead, addDeal, addDealProduct, stages, pipelines, currentUser, users, updateLeadClassificacao, batchUpdateLeadResponsavel } = useCRM();
+    const { leads, deals, products, addLead, updateLead, deleteLead, addDeal, addDealProduct, stages, pipelines, currentUser, users, companies, updateLeadClassificacao, batchUpdateLeadResponsavel } = useCRM();
+    const authFetch = useAuthFetch();
+
+    const isProprietario = currentUser?.role === 'proprietario';
 
     // States para Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -373,6 +387,7 @@ const LeadsView = () => {
     const [filterPipeline, setFilterPipeline] = useState<string>('all');
     const [filterStage, setFilterStage] = useState<string>('all');
     const [filterResponsavel, setFilterResponsavel] = useState<string>('all');
+    const [selectedCompanyForList, setSelectedCompanyForList] = useState<string>('');
 
     // Filtro de Período
     const [period, setPeriod] = useState<string>('all');
@@ -389,6 +404,8 @@ const LeadsView = () => {
     const [selectedPipelineId, setSelectedPipelineId] = useState('');
     const [selectedStageId, setSelectedStageId] = useState('');
     const [newResponsavelId, setNewResponsavelId] = useState('');
+    const [selectedCompanyForForm, setSelectedCompanyForForm] = useState<string>('');
+    const [formProducts, setFormProducts] = useState<any[]>([]);
 
     const [newLead, setNewLead] = useState({
         nome_completo: '',
@@ -403,9 +420,12 @@ const LeadsView = () => {
         productId: '' // Novo campo para produto inicial
     });
 
-    const companyPipelines = useMemo(() => pipelines.filter(p => p.companyId === currentUser?.companyId), [pipelines, currentUser]);
-    const companyUsers = useMemo(() => users.filter(u => u.companyId === currentUser?.companyId), [users, currentUser]);
-    const availableProducts = useMemo(() => products.filter(p => p.companyId === currentUser?.companyId && !p.deletado), [products, currentUser]);
+    // Determina qual empresa usar para filtros/formulário
+    const effectiveCompanyId = isProprietario ? selectedCompanyForList : currentUser?.companyId;
+    const effectiveCompanyForForm = isProprietario ? selectedCompanyForForm : currentUser?.companyId;
+
+    const companyPipelines = useMemo(() => pipelines.filter(p => effectiveCompanyForForm && p.companyId === effectiveCompanyForForm), [pipelines, effectiveCompanyForForm]);
+    const companyUsers = useMemo(() => users.filter(u => effectiveCompanyForForm && u.companyId === effectiveCompanyForForm), [users, effectiveCompanyForForm]);
 
     // Ajuste de estágios disponíveis para o modal de novo lead
     const availableStagesForNewLead = useMemo(() => {
@@ -420,9 +440,52 @@ const LeadsView = () => {
 
     const stagesForFilter = useMemo(() => stages.filter(s => s.pipeline_id === filterPipeline).sort((a, b) => (a.ordem || 0) - (b.ordem || 0)), [stages, filterPipeline]);
 
+    // Reseta a empresa selecionada do formulário quando o modal fecha
+    useEffect(() => {
+        if (!showModal) {
+            setSelectedCompanyForForm('');
+            setFormProducts([]);
+        }
+    }, [showModal]);
+
+    // Carrega produtos quando proprietario seleciona empresa
+    useEffect(() => {
+        if (isProprietario && selectedCompanyForForm && authFetch) {
+            const loadProductsForCompany = async () => {
+                try {
+                    const res = await authFetch(`/produto/${selectedCompanyForForm}`);
+                    if (res?.ok) {
+                        const data = await res.json();
+                        const mappedProducts = (data.data || []).map((p: any) => ({
+                            id: p._id,
+                            nome: p.nome,
+                            valor_total: p.valor_total,
+                            parcelas: p.parcelas,
+                            companyId: p.empresa,
+                            deletado: p.excluido
+                        }));
+                        setFormProducts(mappedProducts);
+                    } else {
+                        setFormProducts([]);
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar produtos:', error);
+                    setFormProducts([]);
+                }
+            };
+            loadProductsForCompany();
+        } else if (!isProprietario) {
+            // Para admin/vendedor, usar os produtos do store
+            setFormProducts(products.filter(p => !p.deletado));
+        }
+    }, [selectedCompanyForForm, isProprietario, authFetch]);
+
     const filteredLeads = useMemo(() => {
         return leads.filter(l => {
-            if (l.deletado || l.companyId !== currentUser?.companyId) return false;
+            if (l.deletado) return false;
+            
+            // Filtra por empresa (para proprietarios usa selectedCompanyForList, para outros usa sua empresa)
+            if (effectiveCompanyId && l.companyId !== effectiveCompanyId) return false;
 
             // Filtro de Busca (Texto) - Prioritário
             const term = searchTerm.toLowerCase().trim();
@@ -453,7 +516,7 @@ const LeadsView = () => {
 
             return true;
         });
-    }, [leads, deals, searchTerm, filterRating, filterStatus, filterPipeline, filterStage, filterResponsavel, currentUser, period, startDate, endDate]);
+    }, [leads, deals, searchTerm, filterRating, filterStatus, filterPipeline, filterStage, filterResponsavel, currentUser, period, startDate, endDate, effectiveCompanyId]);
 
     const toggleLeadSelection = (id: string) => {
         setSelectedLeads(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -504,7 +567,21 @@ const LeadsView = () => {
                 updateLead({ ...existing, ...leadToSave } as Lead);
             }
         } else {
-            const res = addLead({ ...leadToSave, responsavel_id: leadToSave.responsavel_id || currentUser?.id });
+            // Determina a empresa: proprietarios usam a selecionada, outros usam sua própria empresa
+            const companyId = isProprietario ? selectedCompanyForForm : currentUser?.companyId;
+
+            // Mapeia os campos do frontend para o backend
+            const leadPayload = {
+                nome: leadToSave.nome_completo,
+                email: leadToSave.email,
+                whatsapp: leadToSave.whatsapp,
+                responsavel: leadToSave.responsavel_id || currentUser?.id,
+                funil: pipeline_id,
+                etapa: stage_id,
+                empresa: companyId
+            };
+
+            const res = addLead(leadPayload as any);
             if (res.success && res.lead && pipeline_id && stage_id) {
                 const dealRes = addDeal({
                     lead_id: res.lead.id,
@@ -522,6 +599,7 @@ const LeadsView = () => {
         }
         setShowModal(false);
         setEditingLeadId(null);
+        setSelectedCompanyForForm('');
         setNewLead({ nome_completo: '', email: '', whatsapp: '', tipo_pessoa: PersonType.PF, campanha: '', classificacao: 1, pipeline_id: '', stage_id: '', responsavel_id: '', productId: '' });
     };
 
@@ -588,7 +666,7 @@ const LeadsView = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                     <div className="flex-1 w-full space-y-6">
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                                 placeholder="Buscar por nome, e-mail ou WhatsApp..."
@@ -618,12 +696,28 @@ const LeadsView = () => {
                             onClick={handleExportLeads}
                             className="btn-liquid-glass bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                         >
-                            📥 Extrair Base
+                            <Download className="w-4 h-4" /> Extrair Base
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 pt-6 border-t border-slate-100">
+                    {isProprietario && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Empresa</label>
+                            <select
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-xs outline-none focus:border-blue-300"
+                                value={selectedCompanyForList}
+                                onChange={e => setSelectedCompanyForList(e.target.value)}
+                            >
+                                <option value="">Todas as Empresas</option>
+                                {companies.filter(c => !c.deletado).map(c => (
+                                    <option key={c.id} value={c.id}>{c.nome}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estrelas</label>
                         <select
@@ -721,6 +815,7 @@ const LeadsView = () => {
                             </th>
                             <th className="px-6 py-4">Lead / Nome</th>
                             <th className="px-6 py-4">Contato</th>
+                            {isProprietario && <th className="px-6 py-4">Empresa</th>}
                             <th className="px-6 py-4 text-center">Responsável</th>
                             <th className="px-6 py-4 text-center">Classificação</th>
                             <th className="px-6 py-4 text-center">Status Comercial</th>
@@ -756,6 +851,11 @@ const LeadsView = () => {
                                         <p className="text-xs font-bold text-slate-600">{lead.email}</p>
                                         <p className="text-xs font-black text-emerald-600">{lead.whatsapp}</p>
                                     </td>
+                                    {isProprietario && (
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-700">{companies.find(c => c.id === lead.companyId)?.nome || 'N/A'}</span>
+                                        </td>
+                                    )}
                                     <td className="px-6 py-4 text-center">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full">
                                             <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[8px] font-black uppercase">
@@ -781,32 +881,25 @@ const LeadsView = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-1">
+                                        <div className="flex justify-end gap-2">
                                             <button
                                                 onClick={() => handleEditLead(lead)}
-                                                className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors cursor-pointer"
+                                                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 border border-blue-200/50"
                                                 title="Editar Lead"
                                             >
-                                                ✏️
+                                                <Edit2 className="w-4 h-4" />
+                                                Editar
                                             </button>
-                                            {!inFunnel && (
-                                                <button
-                                                    onClick={() => setAllocationModal({ show: true, leadIds: [lead.id] })}
-                                                    className="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
-                                                    title="Lançar no Funil"
-                                                >
-                                                    🚀
-                                                </button>
-                                            )}
                                             <button
                                                 onClick={() => {
                                                     const reason = prompt(`Deseja excluir logicamente "${lead.nome_completo}"? Informe o motivo:`);
                                                     if (reason && reason.trim()) deleteLead(lead.id, reason.trim());
                                                 }}
-                                                className={`p-2 transition-colors cursor-pointer text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg`}
+                                                className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 border border-red-200/50"
                                                 title="Excluir"
                                             >
-                                                🗑️
+                                                <Trash2 className="w-4 h-4" />
+                                                Excluir
                                             </button>
                                         </div>
                                     </td>
@@ -824,9 +917,9 @@ const LeadsView = () => {
                         <span className="font-black text-lg">{selectedLeads.length} Leads Ativos</span>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setResponsavelModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-white text-slate-900 hover:bg-slate-100 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg">👤 Trocar Responsável</button>
-                        <button onClick={() => setAllocationModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">🚀 Lançar em Funil</button>
-                        <button onClick={handleBatchDelete} className="btn-liquid-glass bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border border-red-600/20">🗑️ Excluir</button>
+                        <button onClick={() => setResponsavelModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-white text-slate-900 hover:bg-slate-100 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg flex items-center gap-2"><UserIcon className="w-4 h-4" /> Trocar Responsável</button>
+                        <button onClick={() => setAllocationModal({ show: true, leadIds: selectedLeads })} className="btn-liquid-glass bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"><Rocket className="w-4 h-4" /> Lançar em Funil</button>
+                        <button onClick={handleBatchDelete} className="btn-liquid-glass bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer border border-red-600/20 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Excluir</button>
                         <button onClick={() => setSelectedLeads([])} className="text-slate-400 hover:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer">X</button>
                     </div>
                 </div>
@@ -892,9 +985,9 @@ const LeadsView = () => {
                     <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in duration-200">
                         <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="text-xl font-black text-slate-800 tracking-tight">{editingLeadId ? 'Editar Dados do Lead' : 'Cadastro Individual de Lead'}</h3>
-                            <button onClick={() => { setShowModal(false); setEditingLeadId(null); }} className="text-slate-400 hover:text-slate-800 p-2 cursor-pointer transition-colors">✕</button>
+                            <button onClick={() => { setShowModal(false); setEditingLeadId(null); }} className="text-slate-400 hover:text-slate-800 p-2 cursor-pointer transition-colors"><X className="w-5 h-5" /></button>
                         </div>
-                        <form onSubmit={handleCreateOrUpdateLead} className="p-10 space-y-6">
+                        <form onSubmit={handleCreateOrUpdateLead} className="p-10 space-y-6 max-h-[70vh] overflow-y-auto">
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="col-span-2">
                                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nome Completo</label>
@@ -908,9 +1001,32 @@ const LeadsView = () => {
                                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">WhatsApp</label>
                                     <input required className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900" value={newLead.whatsapp} onChange={e => setNewLead({ ...newLead, whatsapp: e.target.value })} />
                                 </div>
+
+                                {isProprietario && !editingLeadId && (
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Empresa *</label>
+                                        <select 
+                                            required 
+                                            className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer"
+                                            value={selectedCompanyForForm}
+                                            onChange={e => setSelectedCompanyForForm(e.target.value)}
+                                        >
+                                            <option value="">Selecionar Empresa...</option>
+                                            {companies.filter(c => !c.deletado).map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Responsável</label>
-                                    <select className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer" value={newLead.responsavel_id} onChange={e => setNewLead({ ...newLead, responsavel_id: e.target.value })}>
+                                    <select 
+                                        disabled={isProprietario && !editingLeadId && !selectedCompanyForForm}
+                                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" 
+                                        value={newLead.responsavel_id} 
+                                        onChange={e => setNewLead({ ...newLead, responsavel_id: e.target.value })}
+                                    >
                                         <option value="">Atribuir a mim</option>
                                         {companyUsers.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                                     </select>
@@ -959,7 +1075,7 @@ const LeadsView = () => {
                                                 onChange={e => setNewLead({ ...newLead, productId: e.target.value })}
                                             >
                                                 <option value="">Nenhum produto selecionado</option>
-                                                {availableProducts.map(prod => (
+                                                {formProducts.filter(p => !p.deletado).map(prod => (
                                                     <option key={prod.id} value={prod.id}>{prod.nome} - R$ {Number(prod.valor_total).toLocaleString('pt-BR')}</option>
                                                 ))}
                                             </select>
@@ -1028,17 +1144,20 @@ const Main: React.FC = () => {
             {activeTab === 'users_permissions' && <UsersPermissions />}
             {activeTab === 'tasks' && <TasksView />}
             {activeTab === 'leads' && <LeadsView />}
-            {activeTab === 'trash' && (
-                <div className="bg-white p-20 rounded-[40px] border border-slate-200 text-center">
-                    <p className="text-slate-400 font-bold uppercase tracking-widest italic">
-                        A Lixeira permite visualizar leads excluídos.<br />
-                        <span className="text-[10px]">Módulo em implementação para consulta de logs de auditoria.</span>
-                    </p>
-                </div>
-            )}
             {activeTab === 'products' && <Products />}
             {activeTab === 'branding' && <Branding />}
             {activeTab === 'import' && <ImportLeads />}
+            {activeTab === 'trash' && (
+                <>
+                    <div className="bg-white p-20 rounded-[40px] border border-slate-200 text-center mb-6">
+                        <p className="text-slate-400 font-bold uppercase tracking-widest italic">
+                            A Lixeira permite visualizar leads excluídos.<br />
+                            <span className="text-[10px]">Módulo em implementação para consulta de logs de auditoria.</span>
+                        </p>
+                    </div>
+                    <Trash />
+                </>
+            )}
             {activeTab === 'settings' && <Settings />}
             {activeTab === 'notifications' && <NotificationsView />}
         </Layout>

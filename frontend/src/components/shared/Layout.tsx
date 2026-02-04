@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { BarChart3, Wrench, Target, Building2, Lock, Calendar, User, Trash2, Box, Palette, Upload, Settings } from 'lucide-react';
 import { useCRM } from '../../store';
 import { UserProfile, TaskStatus } from '../../types';
 import Logo from './Logo';
@@ -21,23 +22,24 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     // Mapeamento de permissões baseado no array 'acessos' do Backend
     const checkPermission = (perm: string | undefined) => {
         if (!currentUser) return false;
-        if (currentUser.role === 'proprietario' || currentUser.role === 'supervisor') return true; // Proprietário/Supervisor vê tudo
+        if (currentUser.role === 'proprietario' || currentUser.role === 'superadmin') return true; // Proprietário/Superadmin vê tudo
         if (!perm) return true; // Se não tem exigência, libera
         return currentUser.acessos?.includes(perm);
     };
 
     const menuItems = [
-        { id: 'dashboard', label: 'Início', icon: '📊', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'relatorios' },
-        { id: 'pipeline_settings', label: 'Configurar Funil', icon: '🛠️', roles: ['proprietario', 'supervisor'], perm: 'config.funil' }, // Ajustado para config.funil
-        { id: 'kanban', label: 'Funil de Vendas', icon: '🎯', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'negocios' }, // Ajustado para negocios
-        { id: 'companies', label: 'Empresas SaaS', icon: '🏢', roles: ['proprietario'] },
-        { id: 'users_permissions', label: 'Usuários e Permissões', icon: '🔐', roles: ['proprietario', 'supervisor'], perm: 'config.conta' },
-        { id: 'tasks', label: 'Minhas Tarefas', icon: '📅', roles: ['proprietario', 'supervisor', 'vendedor'], badge: userTasksCount, perm: 'agenda' }, // Ajustado para agenda
-        { id: 'leads', label: 'Base de Leads', icon: '👤', roles: ['proprietario', 'supervisor', 'vendedor'], perm: 'leads' },
-        { id: 'products', label: 'Produtos', icon: '📦', roles: ['proprietario', 'supervisor'], perm: 'produtos' },
-        { id: 'branding', label: 'Identidade Visual', icon: '🎨', roles: ['proprietario', 'supervisor'], perm: 'branding' },
-        { id: 'import', label: 'Importação', icon: '📥', roles: ['proprietario', 'supervisor'], perm: 'importacao' },
-        { id: 'settings', label: 'Configurar Conta', icon: '⚙️', roles: ['proprietario', 'supervisor', 'vendedor'] },
+        { id: 'dashboard', label: 'Início', icon: <BarChart3 className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'relatorios' },
+        { id: 'pipeline_settings', label: 'Configurar Funil', icon: <Wrench className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'config.funil' },
+        { id: 'kanban', label: 'Funil de Vendas', icon: <Target className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'negocios' },
+        { id: 'companies', label: 'Empresas SaaS', icon: <Building2 className="w-5 h-5" />, roles: ['proprietario'] },
+        { id: 'users_permissions', label: 'Usuários e Permissões', icon: <Lock className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'config.conta' },
+        { id: 'tasks', label: 'Minhas Tarefas', icon: <Calendar className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], badge: userTasksCount, perm: 'agenda' },
+        { id: 'leads', label: 'Base de Leads', icon: <User className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'], perm: 'leads' },
+        { id: 'trash', label: 'Lixeira', icon: <Trash2 className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'leads' },
+        { id: 'products', label: 'Produtos', icon: <Box className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'produtos' },
+        { id: 'branding', label: 'Identidade Visual', icon: <Palette className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'branding' },
+        { id: 'import', label: 'Importação', icon: <Upload className="w-5 h-5" />, roles: ['proprietario', 'superadmin'], perm: 'importacao' },
+        { id: 'settings', label: 'Configurar Conta', icon: <Settings className="w-5 h-5" />, roles: ['proprietario', 'superadmin', 'vendedor'] },
     ];
 
     const themeVariables = useMemo(() => {

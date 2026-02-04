@@ -2,7 +2,7 @@ const { EmpresaModel } = require('../models/EmpresaModel');
 
 class EmpresaController {
     static async create(req, res) {
-        const { nome, cnpj, cor_principal, cor_destaque, logo_url } = req.body
+        const { nome, cnpj, cor_principal, cor_destaque, logo_url, ativa } = req.body
 
         if (!nome || !cnpj || !cor_principal || !cor_destaque)
             return res.status(400).send({ message: "Data is missing!" });
@@ -12,12 +12,16 @@ class EmpresaController {
             cnpj: cnpj,
             cor_principal: cor_principal,
             cor_destaque: cor_destaque,
-            logo_url: logo_url
+            logo_url: logo_url,
+            ativa: ativa !== false ? true : false
         }
 
         try {
-            await EmpresaModel.create(empresa);
-            return res.status(201).send({ message: "Empresa created with success!" })
+            const createdEmpresa = await EmpresaModel.create(empresa);
+            return res.status(201).send({ 
+                message: "Empresa created with success!",
+                data: createdEmpresa 
+            })
         } catch (error) {
             return res.status(500).send({ message: "An error ocurred when creating an Empresa.", error: error.message })
         }

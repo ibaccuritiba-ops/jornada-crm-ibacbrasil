@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCRM } from '../../../store';
+import { User, Eye, EyeOff } from 'lucide-react';
 
 const Settings: React.FC = () => {
     const {
@@ -57,7 +58,7 @@ const Settings: React.FC = () => {
             {/* MEU PERFIL */}
             <section className="space-y-6">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl">👤</div>
+                    <User className="w-6 h-6 text-slate-900" />
                     <div>
                         <h3 className="text-2xl font-black text-slate-800 tracking-tight">Segurança da Conta</h3>
                         <p className="text-slate-500 text-sm font-medium">Dados de acesso de {currentUser?.nome}</p>
@@ -93,7 +94,7 @@ const Settings: React.FC = () => {
                                         onChange={e => setMyPassData({ ...myPassData, new: e.target.value })}
                                     />
                                     <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600">
-                                        {showNewPass ? "🙈" : "👁️"}
+                                        {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
                                 <div className="flex gap-3">
@@ -107,7 +108,7 @@ const Settings: React.FC = () => {
                                             onChange={e => setMyPassData({ ...myPassData, confirm: e.target.value })}
                                         />
                                         <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600">
-                                            {showConfirmPass ? "🙈" : "👁️"}
+                                            {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
                                     </div>
                                     <button type="submit" className="bg-slate-900 text-white px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl cursor-pointer">Atualizar</button>

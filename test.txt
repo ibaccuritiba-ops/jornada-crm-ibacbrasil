@@ -11,7 +11,7 @@
   "nome": "André Gomes",
   "email": "andregomes@gmail.com",
   "senha": "senhalegal123",
-  "role": "supervisor"
+  "role": "superadmin"
 }
 
 {

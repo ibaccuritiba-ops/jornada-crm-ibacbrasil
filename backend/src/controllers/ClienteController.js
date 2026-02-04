@@ -5,8 +5,9 @@ class ClienteController {
     static async create(req, res) {
         const { empresa, nome, email, whatsapp, responsavel, origem, tag, produto, funil, etapa } = req.body
 
-        if (!empresa || !nome || !email || !whatsapp || !responsavel || !funil || !etapa)
+        if (!empresa || !nome || !email || !whatsapp || !responsavel || !funil || !etapa) {
             return res.status(400).send({ message: "Data is missing!" });
+        }
 
         const cliente = {
             empresa: empresa,
@@ -32,7 +33,7 @@ class ClienteController {
             }
 
             await NegociacaoModel.create(negociacao);
-            return res.status(201).send({ message: "Cliente created with success!" })
+            return res.status(201).send({ message: "Cliente created with success!", data: createdCliente })
         } catch (error) {
             return res.status(500).send({ message: "An error ocurred when creating a Cliente.", error: error.message })
         }
@@ -65,6 +66,22 @@ class ClienteController {
             }
 
             return res.status(200).send({ message: "Success when editing cliente."});
+        } catch (error) {
+            return res.status(500).send({ error: error.message });
+        }
+    }
+
+    static async deleteClienteById(req, res) {
+        const { id } = req.params;
+
+        try {
+            const deletedCliente = await ClienteModel.findByIdAndDelete(id);
+
+            if (!deletedCliente) {
+                return res.status(404).send({ message: "Cliente not found" });
+            }
+
+            return res.status(200).send({ message: "Cliente deleted successfully." });
         } catch (error) {
             return res.status(500).send({ error: error.message });
         }

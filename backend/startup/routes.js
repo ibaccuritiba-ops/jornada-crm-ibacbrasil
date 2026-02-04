@@ -5,6 +5,7 @@ const EtapaRoute = require('../src/routes/EtapaRoute');
 const FunilRoute = require('../src/routes/FunilRoute');
 const NegociacaoRoute = require('../src/routes/NegociacaoRoute');
 const UsuarioRoute = require('../src/routes/UsuarioRoute');
+const ProdutoRoute = require('../src/routes/ProdutoRoute');
 
 module.exports = function(app) {
     app
@@ -15,4 +16,5 @@ module.exports = function(app) {
         .use('/funil', FunilRoute)
         .use('/negociacao', NegociacaoRoute)
         .use('/usuario', UsuarioRoute)
+        .use('/produto', ProdutoRoute)
 }

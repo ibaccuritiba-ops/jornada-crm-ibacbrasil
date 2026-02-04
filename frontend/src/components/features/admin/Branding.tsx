@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Palette, Image } from 'lucide-react';
 import { useCRM } from '../../../store';
 
 const Branding: React.FC = () => {
@@ -45,7 +46,7 @@ const Branding: React.FC = () => {
         <div className="max-w-4xl mx-auto pb-20 space-y-8 animate-in fade-in">
             <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200">
-                    <span className="text-2xl">🎨</span>
+                    <Palette className="w-6 h-6" />
                 </div>
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Identidade Visual</h2>
@@ -67,7 +68,7 @@ const Branding: React.FC = () => {
                                     <img src={branding.logo_url} className="max-h-full p-6 object-contain" alt="Preview Logo" />
                                 ) : (
                                     <div className="text-center p-6">
-                                        <span className="text-3xl mb-2 block">🖼️</span>
+                                        <Image className="w-12 h-12 mb-2 mx-auto text-slate-400" />
                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clique para Upload</span>
                                     </div>
                                 )}

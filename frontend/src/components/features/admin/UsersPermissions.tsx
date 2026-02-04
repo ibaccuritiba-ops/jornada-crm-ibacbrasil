@@ -2,18 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { useCRM } from '../../../store';
 import { UserProfile, UserPermissions, User } from '../../../types';
+import { User as UserIcon, Target, Download, BarChart3, Box, Wrench, Palette, Settings, Calendar, Check, X, Search, Edit2, Save, Plus, Trash2 } from 'lucide-react';
 
 // Mapeamento de nomes amigáveis para as permissões
-const permissionLabels: Record<keyof UserPermissions, string> = {
-    leads: '👤 Leads',
-    negociacoes: '🎯 Negócios',
-    importacao: '📥 Importação',
-    relatorios: '📊 Relatórios',
-    produtos: '📦 Produtos',
-    pipelines: '🛠️ Config. Funil',
-    branding: '🎨 Branding',
-    configuracoes: '⚙️ Config. Conta',
-    tarefas: '📅 Agenda'
+const permissionLabels: Record<keyof UserPermissions, {label: string; icon: React.ReactNode}> = {
+    leads: {label: 'Leads', icon: <UserIcon className="w-4 h-4" />},
+    negociacoes: {label: 'Negócios', icon: <Target className="w-4 h-4" />},
+    importacao: {label: 'Importação', icon: <Download className="w-4 h-4" />},
+    relatorios: {label: 'Relatórios', icon: <BarChart3 className="w-4 h-4" />},
+    produtos: {label: 'Produtos', icon: <Box className="w-4 h-4" />},
+    pipelines: {label: 'Config. Funil', icon: <Wrench className="w-4 h-4" />},
+    branding: {label: 'Branding', icon: <Palette className="w-4 h-4" />},
+    configuracoes: {label: 'Config. Conta', icon: <Settings className="w-4 h-4" />},
+    tarefas: {label: 'Agenda', icon: <Calendar className="w-4 h-4" />}
 };
 
 // Sub-componente para gerenciar a linha do usuário com estado local de rascunho
@@ -74,9 +75,9 @@ const UserRow: React.FC<{
                     <div>
                         <p className="font-black text-slate-800 text-sm">{user.nome} {isCurrent && <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full ml-1 uppercase">Você</span>}</p>
                         <p className="text-xs text-slate-500 font-medium mb-1">{user.email}</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[9px] font-black uppercase bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{user.role}</span>
-                            {isProprietario && <span className="text-[9px] font-bold text-blue-600 truncate max-w-[120px]">@{companyName || 'Ecossistema'}</span>}
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">@{companyName || 'Sem empresa'}</span>
                         </div>
                     </div>
                 </div>
@@ -105,7 +106,10 @@ const UserRow: React.FC<{
                                     : 'bg-white text-slate-300 border-slate-100'
                                 } ${canEdit && draftAccess ? 'cursor-pointer hover:brightness-95' : 'opacity-50 cursor-not-allowed'}`}
                         >
-                            {permissionLabels[key] || key}
+                            <span className="flex items-center gap-2">
+                                {permissionLabels[key]?.icon}
+                                {permissionLabels[key]?.label || key}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -128,7 +132,7 @@ const UserRow: React.FC<{
 
                     {saveStatus === 'saved' && (
                         <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
-                            <span className="text-sm">✓</span> Atualizado
+                            <Check className="w-4 h-4" /> Atualizado
                         </span>
                     )}
 
@@ -146,7 +150,7 @@ const UserRow: React.FC<{
                                 onClick={() => onDelete(user.id)}
                                 className="p-2.5 bg-white text-slate-300 hover:text-red-500 rounded-xl border border-slate-200 cursor-pointer shadow-sm transition-all hover:border-red-200"
                             >
-                                🗑️
+                                <Trash2 className="w-4 h-4" />
                             </button>
                         )}
                     </div>
@@ -160,18 +164,22 @@ const UsersPermissions: React.FC = () => {
     const { users, companies, currentUser, addUser, deleteUser, changeUserPassword, updateUserPermissions } = useCRM();
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', role: 'vendedor' });
+    const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
     const [showPass, setShowPass] = useState(false);
 
     const isProprietario = currentUser?.role === 'proprietario';
-    const isSupervisor = currentUser?.role === 'supervisor';
+    const isSuperadmin = currentUser?.role === 'superadmin';
 
     // Apenas proprietários podem criar usuários
     const isPlatformMaster = currentUser?.role === 'proprietario';
 
     const filteredUsers = users.filter(u => {
         const matchesSearch = u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase());
-        if (isProprietario) return matchesSearch;
+        if (isProprietario) {
+            // Proprietário vê TODOS os usuários de todas as empresas
+            return matchesSearch;
+        }
+        // Superadmin/outros veem apenas usuários da sua empresa, exceto proprietários
         return matchesSearch && u.companyId === currentUser?.companyId && u.role !== 'proprietario';
     });
 
@@ -179,7 +187,7 @@ const UsersPermissions: React.FC = () => {
         e.preventDefault();
         addUser({ ...newUser });
         setShowModal(false);
-        setNewUser({ nome: '', email: '', senha: '', role: 'vendedor' });
+        setNewUser({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
         setShowPass(false);
     };
 
@@ -202,7 +210,7 @@ const UsersPermissions: React.FC = () => {
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex-1 w-full">
                     <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                         <input
                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                             placeholder="Buscar colaboradores por nome ou e-mail..."
@@ -259,7 +267,7 @@ const UsersPermissions: React.FC = () => {
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 animate-in zoom-in duration-200">
                         <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                             <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Novo Colaborador</h4>
-                            <button onClick={() => { setShowModal(false); setShowPass(false); }} className="text-slate-400 hover:text-slate-900 text-xl font-bold p-2 cursor-pointer">✕</button>
+                            <button onClick={() => { setShowModal(false); setShowPass(false); }} className="text-slate-400 hover:text-slate-900 p-2 cursor-pointer"><X className="w-6 h-6" /></button>
                         </div>
                         <form onSubmit={handleCreateUser} className="p-8 space-y-5">
                             <div>
@@ -273,11 +281,24 @@ const UsersPermissions: React.FC = () => {
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nível de Função</label>
                                 <select className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                                    <option value="supervisor">Supervisor</option>
+                                    <option value="superadmin">Superadmin</option>
                                     <option value="vendedor">Vendedor</option>
                                     {isPlatformMaster && <option value="proprietario">Proprietário</option>}
                                 </select>
                             </div>
+                            {isPlatformMaster && (
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Empresa</label>
+                                    <select required className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-900 outline-none" value={newUser.empresa} onChange={e => setNewUser({ ...newUser, empresa: e.target.value })}>
+                                        <option value="">Selecione uma empresa...</option>
+                                        {companies.map(company => (
+                                            <option key={company.id} value={company.id}>
+                                                {company.nome}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Senha Inicial</label>
                                 <div className="relative">

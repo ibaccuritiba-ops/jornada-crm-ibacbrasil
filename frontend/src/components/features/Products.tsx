@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useCRM } from '../../store';
 import { Product } from '../../types';
+import { Search, Box, Plus, Trash2, Edit2 } from 'lucide-react';
 
 const Products: React.FC = () => {
     const { products, addProduct, updateProduct, deleteProduct } = useCRM();
@@ -67,14 +68,14 @@ const Products: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
                 <div className="flex-1 w-full space-y-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">📦</div>
+                        <Box className="w-6 h-6 text-slate-900" />
                         <div>
                             <h3 className="text-xl font-black text-slate-800">Catálogo de Produtos</h3>
                             <p className="text-sm text-slate-500 font-medium">Itens disponíveis para oferta comercial</p>
                         </div>
                     </div>
                     <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                         <input
                             className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                             placeholder="Buscar por nome do produto..."
@@ -131,7 +132,7 @@ const Products: React.FC = () => {
                                                 className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
                                                 title="Editar Produto"
                                             >
-                                                ✏️
+                                                <Edit2 className="w-4 h-4" />
                                             </button>
                                             <button
                                                 type="button"
@@ -139,7 +140,7 @@ const Products: React.FC = () => {
                                                 className="p-3 transition-all cursor-pointer text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl"
                                                 title="Excluir Produto"
                                             >
-                                                🗑️
+                                                <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
                                     </td>

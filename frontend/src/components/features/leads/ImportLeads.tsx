@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCRM } from '../../../store';
 import { UserProfile } from '../../../types';
+import { Download, RotateCcw, Check } from 'lucide-react';
 
 const ImportLeads: React.FC = () => {
     const { importLeads, stages, syncLeadsFromFluent, currentUser, users } = useCRM();
@@ -94,7 +95,7 @@ const ImportLeads: React.FC = () => {
         }, 1500);
     };
 
-    const isSuperAdmin = currentUser?.role === 'supervisor' || currentUser?.role === 'proprietario';
+    const isSuperAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'proprietario';
 
     return (
         <div className="max-w-6xl mx-auto pb-20 space-y-12 px-4 animate-in fade-in">
@@ -102,7 +103,7 @@ const ImportLeads: React.FC = () => {
             {/* Manual Import Section */}
             <section className="space-y-6">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">📥</div>
+                    <Download className="w-6 h-6 text-white bg-blue-600 rounded-xl p-2" />
                     <div>
                         <h3 className="text-xl font-black text-slate-800 tracking-tight">Importação por Planilha (CSV/TXT)</h3>
                         <p className="text-slate-500 text-sm font-medium">Insira seus dados para processamento em lote com verificação de duplicidade</p>
@@ -192,8 +193,8 @@ const ImportLeads: React.FC = () => {
                                     {isProcessing ? 'Processando Dados...' : 'Iniciar Lote Agora'}
                                 </button>
                                 {result && (
-                                    <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 font-black text-[10px] uppercase text-center animate-bounce">
-                                        ✓ {result.imported} Importados com Sucesso
+                                    <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 font-black text-[10px] uppercase text-center animate-bounce flex items-center justify-center gap-2">
+                                        <Check className="w-4 h-4" /> {result.imported} Importados com Sucesso
                                     </div>
                                 )}
                             </div>
@@ -216,7 +217,7 @@ const ImportLeads: React.FC = () => {
                 <section>
                     <div className="flex items-center gap-3 mb-6">
                         <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                            <span className="text-xl">🔄</span>
+                            <RotateCcw className="w-5 h-5" />
                         </div>
                         <div>
                             <h3 className="text-xl font-black text-slate-800 tracking-tight">Distribuição Automática (FluentCRM)</h3>
