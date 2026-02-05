@@ -20,6 +20,7 @@ const ImportLeads: React.FC = () => {
     const [allocationMode, setAllocationMode] = useState<'specific' | 'distribute'>('specific');
     const [specificUserId, setSpecificUserId] = useState('');
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
     const isProprietario = currentUser?.role === 'proprietario';
 
@@ -98,7 +99,7 @@ const ImportLeads: React.FC = () => {
     };
 
     const handleImport = async () => {
-        if (!effectiveCompanyId && isProprietario) {
+        if (!effectiveCompanyId) {
             alert('Selecione uma empresa para importar leads');
             return;
         }
@@ -117,9 +118,14 @@ const ImportLeads: React.FC = () => {
                 userId: allocationMode === 'specific' ? specificUserId : undefined,
                 companyId: effectiveCompanyId
             } as any);
-            setResult(report);
-            setRawText('');
-            setPreview([]);
+            
+            if (!report.success && report.status === 409) {
+                setDuplicateError(report.error);
+            } else {
+                setResult(report);
+                setRawText('');
+                setPreview([]);
+            }
         } catch (error) {
             console.error('Erro na importação:', error);
             alert('Erro ao importar leads. Verifique o console.');
@@ -309,6 +315,28 @@ const ImportLeads: React.FC = () => {
                         </div>
                     </div>
                 </section>
+            )}
+
+            {duplicateError && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl border border-slate-200 animate-in zoom-in duration-200 overflow-hidden">
+                        <div className="p-8 bg-red-50 border-b border-red-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-3xl">📧</span>
+                                <h3 className="text-xl font-black text-red-600 tracking-tight">Email Duplicado</h3>
+                            </div>
+                        </div>
+                        <div className="p-8 text-center space-y-6">
+                            <p className="text-slate-600 font-bold">{duplicateError}</p>
+                            <button
+                                onClick={() => setDuplicateError(null)}
+                                className="w-full bg-red-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg cursor-pointer"
+                            >
+                                Entendi
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

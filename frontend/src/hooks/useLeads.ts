@@ -49,7 +49,13 @@ export const useLeads = (): UseLeadsReturn => {
                 setLeads(prev => [...prev, newLead]);
                 return { success: true, lead: newLead };
             }
-            return { success: false, error: 'Failed to create lead' };
+
+            const errorData = await res?.json().catch(() => ({}));
+            return { 
+                success: false, 
+                error: errorData?.message || 'Falha ao criar lead',
+                status: res?.status
+            };
         } catch (error) {
             return { success: false, error: String(error) };
         }
@@ -118,7 +124,7 @@ export const useLeads = (): UseLeadsReturn => {
     }, []);
 
     const importLeads = useCallback(async (data: any[], allocation: { mode: 'specific' | 'distribute', userId?: string, companyId?: string }) => {
-        if (!authFetch) return { imported: 0, failed: [] };
+        if (!authFetch) return { imported: 0, failed: [], success: true };
 
         const failed: { row: number; reason: string }[] = [];
         const successfulLeads: Lead[] = [];
@@ -201,6 +207,18 @@ export const useLeads = (): UseLeadsReturn => {
                         const errorData = await res.json().catch(() => ({}));
                         const errorMsg = errorData?.message || `Status ${res?.status}`;
                         console.error(`[importLeads] Erro na linha ${index + 1}:`, errorMsg, { leadPayload, response: errorData });
+                        
+                        // Se for erro 409 (duplicado), retornar imediatamente
+                        if (res?.status === 409) {
+                            return { 
+                                imported: successfulLeads.length, 
+                                failed: failed,
+                                success: false,
+                                error: errorMsg,
+                                status: 409
+                            };
+                        }
+                        
                         failed.push({ row: index + 1, reason: errorMsg });
                     }
                 } catch (apiError) {
@@ -216,7 +234,8 @@ export const useLeads = (): UseLeadsReturn => {
 
         return {
             imported: successfulLeads.length,
-            failed: failed
+            failed: failed,
+            success: true
         };
     }, [authFetch]);
 

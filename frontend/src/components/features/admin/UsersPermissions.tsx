@@ -169,6 +169,7 @@ const UsersPermissions: React.FC = () => {
     const [showModal, setShowModal] = useState(false);
     const [newUser, setNewUser] = useState({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
     const [showPass, setShowPass] = useState(false);
+    const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
     const isProprietario = currentUser?.role === 'proprietario';
     const isSuperadmin = currentUser?.role === 'superadmin';
@@ -186,12 +187,22 @@ const UsersPermissions: React.FC = () => {
         return matchesSearch && u.companyId === currentUser?.companyId && u.role !== 'proprietario';
     });
 
-    const handleCreateUser = (e: React.FormEvent) => {
+    const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        addUser({ ...newUser });
-        setShowModal(false);
-        setNewUser({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
-        setShowPass(false);
+        const result = await addUser({ ...newUser });
+        
+        if (!result.success) {
+            if (result.status === 409) {
+                setDuplicateError(result.error || 'Email já cadastrado');
+            } else {
+                alert(result.error || 'Erro ao criar usuário');
+            }
+        } else {
+            setShowModal(false);
+            setNewUser({ nome: '', email: '', senha: '', role: 'vendedor', empresa: '' });
+            setShowPass(false);
+            setDuplicateError(null);
+        }
     };
 
     const handleUpdate = (userId: string, perms: UserPermissions, access: boolean) => {
@@ -331,6 +342,28 @@ const UsersPermissions: React.FC = () => {
                             </div>
                             <button type="submit" className="w-full action-bg text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs hover:brightness-90 shadow-xl cursor-pointer">Criar Acesso</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {duplicateError && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl border border-slate-200 animate-in zoom-in duration-200 overflow-hidden">
+                        <div className="p-8 bg-red-50 border-b border-red-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-3xl">📧</span>
+                                <h3 className="text-xl font-black text-red-600 tracking-tight">Email Já Cadastrado</h3>
+                            </div>
+                        </div>
+                        <div className="p-8 text-center space-y-6">
+                            <p className="text-slate-600 font-bold">{duplicateError}</p>
+                            <button
+                                onClick={() => setDuplicateError(null)}
+                                className="w-full bg-red-600 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg cursor-pointer"
+                            >
+                                Entendi
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

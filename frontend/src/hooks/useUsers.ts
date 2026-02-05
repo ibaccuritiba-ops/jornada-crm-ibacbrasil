@@ -7,7 +7,7 @@ import { useAuthFetch } from './useAuthFetch';
 interface UseUsersReturn {
     users: User[];
     setUsers: (users: User[]) => void;
-    addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => Promise<void>;
+    addUser: (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => Promise<{ success: boolean; error?: string; status?: number }>;
     updateUser: (user: User) => void;
     deleteUser: (userId: string) => void;
     changeUserPassword: (userId: string, newPass: string) => Promise<void>;
@@ -20,7 +20,7 @@ export const useUsers = (): UseUsersReturn => {
     const authFetch = useAuthFetch();
 
     const addUser = useCallback(async (user: Omit<User, 'id' | 'criado_em' | 'permissions' | 'acesso_confirmado'>) => {
-        if (!authFetch) return;
+        if (!authFetch) return { success: false, error: 'No auth' };
         
         const userData = {
             ...user,
@@ -52,7 +52,15 @@ export const useUsers = (): UseUsersReturn => {
                 criado_em: data.data.createdAt
             };
             setUsers(prev => [...prev, newUser]);
+            return { success: true };
         }
+
+        const errorData = await res?.json().catch(() => ({}));
+        return { 
+            success: false, 
+            error: errorData?.message || 'Erro ao criar usuário',
+            status: res?.status
+        };
     }, [authFetch]);
 
     const updateUser = useCallback((user: User) => {

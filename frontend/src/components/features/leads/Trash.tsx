@@ -24,6 +24,14 @@ export default function Trash() {
         }
     };
 
+    const handleEmptyTrash = async () => {
+        if (window.confirm(`Deletar permanentemente todos os ${deletedLeads.length} cliente(s) na lixeira? Esta ação não pode ser desfeita.`)) {
+            for (const lead of deletedLeads) {
+                await permanentlyDeleteLead(lead.id);
+            }
+        }
+    };
+
     if (deletedLeads.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -36,7 +44,7 @@ export default function Trash() {
 
     return (
         <div className="space-y-6">
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-end">
                 <input
                     type="text"
                     placeholder="Buscar por nome, email ou WhatsApp..."
@@ -47,6 +55,13 @@ export default function Trash() {
                 <span className="px-4 py-3 bg-slate-100 rounded-xl font-black text-sm text-slate-600">
                     {filteredLeads.length} cliente{filteredLeads.length !== 1 ? 's' : ''}
                 </span>
+                <button
+                    onClick={handleEmptyTrash}
+                    className="bg-red-600 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg cursor-pointer flex items-center gap-2"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    Esvaziar Lixeira
+                </button>
             </div>
 
             <div className="overflow-x-auto">
