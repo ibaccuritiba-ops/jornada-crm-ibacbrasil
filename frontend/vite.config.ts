@@ -2,19 +2,20 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    return {
-        root: './src',
-        plugins: [react()],
-        server: {
-            port: 3000,
-            host: '0.0.0.0',
+export default defineConfig({
+    root: './src',
+    plugins: [react()],
+    build: {
+        outDir: '../dist',
+        emptyOutDir: true,
+    },
+    server: {
+        port: 3000,
+        host: '0.0.0.0',
+    },
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, 'src'),
         },
-        resolve: {
-            alias: {
-                '@': path.resolve(__dirname, 'src'),
-            }
-        }
-    };
-});
+    },
+})
