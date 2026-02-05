@@ -1,6 +1,7 @@
 const { ClienteModel } = require('../models/ClienteModel');
 const { NegociacaoModel } = require('../models/NegociacaoModel');
 const { UsuarioModel } = require('../models/UsuarioModel');
+const mongoose = require('mongoose');
 
 class ClienteController {
     static async create(req, res) {
@@ -12,18 +13,32 @@ class ClienteController {
                 return res.status(400).send({ message: "Data is missing!" });
             }
 
-            const cliente = {
-                empresa: empresa,
-                nome: nome,
-                email: email,
-                whatsapp: whatsapp || 'N/A',
-                responsavel: responsavel,
-                origem: origem,
-                tag: tag,
-                produto: produto
-            }
-
             try {
+                // Verifica se o email já foi cadastrado como cliente NA MESMA EMPRESA
+                // Normaliza empresa para string para comparacao consistente
+                // Verifica apenas clientes não deletados (excluido: false)
+                const empresaStr = empresa?.toString() || empresa;
+                const emailExistenteCliente = await ClienteModel.findOne({ 
+                    email: email.toLowerCase(), 
+                    empresa: mongoose.Types.ObjectId.isValid(empresaStr) ? new mongoose.Types.ObjectId(empresaStr) : empresaStr,
+                    excluido: false
+                });
+                if (emailExistenteCliente) {
+                    return res.status(409).send({ message: "Este email já foi cadastrado anteriormente como cliente nesta empresa." });
+                }
+
+                const cliente = {
+                    empresa: empresa,
+                    nome: nome,
+                    email: email,
+                    whatsapp: whatsapp || 'N/A',
+                    responsavel: responsavel,
+                    origem: origem,
+                    tag: tag,
+                    produto: produto,
+                    excluido: false
+                }
+
                 // Se responsavel for 'distribute', fazer rodízio entre usuários da empresa
                 if (responsavel === 'distribute') {
                     // Encontra usuários ativos (ativo: true)
@@ -54,18 +69,32 @@ class ClienteController {
             return res.status(400).send({ message: "Data is missing!" });
         }
 
-        const cliente = {
-            empresa: empresa,
-            nome: nome,
-            email: email,
-            whatsapp: whatsapp || 'N/A',
-            responsavel: responsavel,
-            origem: origem,
-            tag: tag,
-            produto: produto
-        }
-
         try {
+            // Verifica se o email já foi cadastrado como cliente NA MESMA EMPRESA
+            // Normaliza empresa para string para comparacao consistente
+            // Verifica apenas clientes não deletados (excluido: false)
+            const empresaStr = empresa?.toString() || empresa;
+            const emailExistenteCliente = await ClienteModel.findOne({ 
+                email: email.toLowerCase(), 
+                empresa: mongoose.Types.ObjectId.isValid(empresaStr) ? new mongoose.Types.ObjectId(empresaStr) : empresaStr,
+                excluido: false
+            });
+            if (emailExistenteCliente) {
+                return res.status(409).send({ message: "Este email já foi cadastrado anteriormente como cliente nesta empresa." });
+            }
+
+            const cliente = {
+                empresa: empresa,
+                nome: nome,
+                email: email,
+                whatsapp: whatsapp || 'N/A',
+                responsavel: responsavel,
+                origem: origem,
+                tag: tag,
+                produto: produto,
+                excluido: false
+            }
+
             const createdCliente = await ClienteModel.create(cliente);
 
             const negociacao = {
@@ -121,6 +150,10 @@ class ClienteController {
         const { id } = req.params;
 
         try {
+            // Primeiro, deleta todas as negociações associadas a este cliente
+            await NegociacaoModel.deleteMany({ cliente: id });
+
+            // Depois deleta o cliente
             const deletedCliente = await ClienteModel.findByIdAndDelete(id);
 
             if (!deletedCliente) {

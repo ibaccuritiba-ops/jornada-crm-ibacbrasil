@@ -11,19 +11,25 @@ class UsuarioController {
         if (!nome || !email || !senha || !role) return res.status(400).send({ message: "Data is missing!" });
         if (role !== 'proprietario' && !empresa) return res.status(400).send({ message: "Empresa is required for non-proprietario users!" });
 
-        const usuario = {
-            nome: nome,
-            email: email,
-            senha: senha,
-            role: role
-        };
-
-        // Só adiciona empresa se não for proprietário
-        if (role !== 'proprietario') {
-            usuario.empresa = empresa;
-        }
-
         try {
+            // Verifica se o email já foi cadastrado
+            const emailExistente = await UsuarioModel.findOne({ email: email.toLowerCase() });
+            if (emailExistente) {
+                return res.status(409).send({ message: "Este email já foi cadastrado anteriormente." });
+            }
+
+            const usuario = {
+                nome: nome,
+                email: email,
+                senha: senha,
+                role: role
+            };
+
+            // Só adiciona empresa se não for proprietário
+            if (role !== 'proprietario') {
+                usuario.empresa = empresa;
+            }
+
             await UsuarioModel.create(usuario);
             return res.status(201).send({ message: "Success when creating Usuario!" })
         } catch (error) {
